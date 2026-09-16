@@ -15,8 +15,9 @@
     </description>
 
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <!-- Portability: bumped from Java 21 to Java 25 for Paper API 26.2 -->
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -33,10 +34,13 @@
 
     <dependencies>
         <!-- Paper API is provided by the server at runtime (includes Adventure and Gson) -->
+        <!-- Portability: pinned to the fixed stable build 26.2.build.124-stable
+             instead of a version range, since open ranges (e.g. [26.2.build,))
+             cannot be resolved without reaching repo.papermc.io -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.21.4-R0.1-SNAPSHOT</version>
+            <version>26.2.build.124-stable</version>
             <scope>provided</scope>
         </dependency>
         <!-- Optional integration (softdepend) - only compiled against, never
@@ -60,7 +64,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <release>21</release>
+                    <!-- Portability: bumped from 21 to 25 for Paper API 26.2 -->
+                    <release>25</release>
                 </configuration>
             </plugin>
             <plugin>

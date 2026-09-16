@@ -1,7 +1,7 @@
 name: StoneStats
 version: '1.0.0'
 main: dev.stonestats.plugin.StoneStats
-api-version: '1.21'
+api-version: '26.2'
 author: Stone Plugins
 description: Stone Stats opens a fast, fully configurable GUI showing every player's kills, deaths, playtime, blocks broken/placed and more.
 folia-supported: false

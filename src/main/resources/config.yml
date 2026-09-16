@@ -1,0 +1,218 @@
+# =====================================================================
+#                       Stone Stats - config.yml
+#                        A plugin by Stone Plugins
+# =====================================================================
+#
+# This file contains SETTINGS (GUI layout, sounds, toggles, timings) as
+# well as the actual GUI item text itself - both live here (not in
+# messages.yml) so the whole "what does the stats GUI look like"
+# experience is configured in one single place.
+#
+# General command feedback (help, reload, errors, ...) is translated
+# per-language instead, in:
+#   plugins/Stone Stats/languages/<language>/messages.yml
+#
+# Text styling: headers/labels below use Unicode "small caps" characters
+# (e.g. ᴘʟᴀʏᴛɪᴍᴇ) combined with MiniMessage <gradient:#hex:#hex>...</gradient>
+# tags for color. IMPORTANT: every letter in a styled word must be small
+# caps - mixing in a normal-size capital letter (e.g. "Pʟᴀʏᴛɪᴍᴇ") looks
+# broken since the sizes clash. 'q', 's' and 'x' have no small-caps glyph
+# and stay as plain lowercase by design - that's expected, not a mistake.
+#
+# PlaceholderAPI: if the PlaceholderAPI plugin is installed, any
+# %placeholder% from it also works directly in the lines below, right
+# alongside Stone Stats' own {stat_x} placeholders - no extra setup.
+#
+# ---------------------------------------------------------------------
+# Available placeholders (usable in every gui item name/lore below):
+#   {player}              - name of the player whose stats are shown
+#   {player_sc}            - the above, converted to small caps
+#   {stat_kills}           - player kills
+#   {stat_deaths}          - deaths
+#   {stat_kd}               - kill/death ratio (1 decimal place)
+#   {stat_mob_kills}        - mobs killed
+#   {stat_playtime}         - total playtime, formatted (e.g. "4d 6h 12m")
+#   {stat_blocks_broken}    - blocks mined
+#   {stat_blocks_placed}    - blocks placed
+#   {stat_first_join}       - date/time of this player's first ever join
+#   {stat_last_join}        - date/time of this player's last login
+#   {stat_level}            - current XP level (online players only, else "-")
+#   {stat_xp_bar}           - progress bar of XP to next level, e.g. "██████░░░░"
+#   {stat_xp_percent}       - the above, as a plain number (0-100)
+#   %any_placeholderapi_placeholder% - works too, if PlaceholderAPI is installed
+# ---------------------------------------------------------------------
+#
+# Missing options are added automatically on plugin updates. Existing
+# values you changed are never overwritten, even in nested sections.
+# =====================================================================
+
+language: en
+
+# Pattern used to render {stat_first_join} and {stat_last_join}, following
+# Java's SimpleDateFormat syntax (e.g. "dd.MM.yyyy HH:mm" -> 28.07.2026 14:05).
+date-format: "dd.MM.yyyy HH:mm"
+
+# ---------------------------------------------------------------------
+# Which stats are actually tracked. Turning one off skips its listener
+# entirely (no performance cost) and its placeholder simply renders "-".
+# ---------------------------------------------------------------------
+track:
+  kills: true
+  deaths: true
+  mob-kills: true
+  blocks-broken: true
+  blocks-placed: true
+  playtime: true
+
+# How often (in minutes) in-memory stats are written to disk in the
+# background. Stat counters are only ever updated in memory (never on
+# disk directly), so this is the only place block/kill events cause any
+# file I/O at all - keep this reasonably high on busy servers.
+autosave-interval-minutes: 5
+
+# =====================================================================
+# The GUI itself: 4 rows (36 slots). Every row is symmetric - the same
+# amount of border on the left and right of its items - instead of items
+# being packed flush against one side.
+#   Row 1: profile head
+#   Row 2: personal stats (level, playtime, kills, deaths, mob kills,
+#          blocks broken/placed)
+#   Row 3: first join / last login
+#   Row 4: pure border - kept empty on purpose, just for visual size/balance
+# =====================================================================
+gui:
+  title: "<gradient:#6A11CB:#2575FC><bold>» {player_sc}'s sᴛᴀᴛs «</bold></gradient>"
+
+  rows: 4
+
+  fill-empty-slots: true
+  filler-item: GRAY_STAINED_GLASS_PANE
+  filler-name: " "
+
+  # Minimum time (in milliseconds) between two GUI opens for the same
+  # player. Prevents command-spam/macros from repeatedly allocating a new
+  # inventory and item set; 0 disables the cooldown entirely.
+  open-cooldown-ms: 500
+
+  sounds:
+    open:
+      enabled: true
+      sound: BLOCK_CHEST_OPEN
+      volume: 1.0
+      pitch: 1.0
+    click:
+      enabled: true
+      sound: UI_BUTTON_CLICK
+      volume: 0.6
+      pitch: 1.4
+
+  # No equipment section in this layout - leave gui.equipment.slots empty
+  # (or remove it) to skip it entirely.
+  equipment:
+    offline-item: BARRIER
+    offline-name: "&8Player Offline"
+    offline-lore: []
+    slots: {}
+
+  # Every entry becomes one item in the GUI (slot is 0-indexed, 0-35 for
+  # a 4-row GUI). Add a new stat by adding a new entry here plus a
+  # placeholder in PlaceholderManager - nothing else needs to change.
+  items:
+    profile:
+      slot: 4
+      material: PLAYER_HEAD
+      skull-owner: true
+      name: "<gradient:#F7971E:#FFD200><bold>{player}</bold></gradient>"
+      lore:
+        - "&8▪ &7ᴛᴏᴛᴀʟ ᴘʟᴀʏᴛɪᴍᴇ"
+        - "&f&l{stat_playtime}"
+        - " "
+        - "&8▪ &7ᴍᴇᴍʙᴇʀ sɪɴᴄᴇ"
+        - "&f&l{stat_first_join}"
+
+    # --- Row 2: personal stats (7 items, symmetric: border only at 9/17) ---
+    level:
+      slot: 10
+      material: EXPERIENCE_BOTTLE
+      name: "<gradient:#11998E:#38EF7D>ʟᴇᴠᴇʟ</gradient>"
+      lore:
+        - "&8▪ &7ᴇxᴘᴇʀɪᴇɴᴄᴇ ʟᴇᴠᴇʟ"
+        - "&f&l{stat_level}"
+        - " "
+        - "<gradient:#11998E:#38EF7D>{stat_xp_bar}</gradient> &7{stat_xp_percent}%"
+
+    playtime:
+      slot: 11
+      material: CLOCK
+      name: "<gradient:#43CEA2:#185A9D>ᴘʟᴀʏᴛɪᴍᴇ</gradient>"
+      lore:
+        - "&8▪ &7ᴛᴏᴛᴀʟ ᴛɪᴍᴇ ᴘʟᴀʏᴇᴅ"
+        - "&f&l{stat_playtime}"
+
+    kills:
+      slot: 12
+      material: IRON_SWORD
+      name: "<gradient:#F857A6:#FF5858>ᴋɪʟʟs</gradient>"
+      lore:
+        - "&8▪ &7ᴘʟᴀʏᴇʀs ᴅᴇꜰᴇᴀᴛᴇᴅ"
+        - "&f&l{stat_kills}"
+
+    deaths:
+      slot: 13
+      material: SKELETON_SKULL
+      name: "<gradient:#C471ED:#F64F59>ᴅᴇᴀᴛʜs</gradient>"
+      lore:
+        - "&8▪ &7ᴛɪᴍᴇs ᴅɪᴇᴅ"
+        - "&f&l{stat_deaths}"
+
+    mob_kills:
+      slot: 14
+      material: ZOMBIE_HEAD
+      name: "<gradient:#56AB2F:#A8E063>ᴍᴏʙ ᴋɪʟʟs</gradient>"
+      lore:
+        - "&8▪ &7ᴍᴏʙs sʟᴀɪɴ"
+        - "&f&l{stat_mob_kills}"
+
+    blocks_broken:
+      slot: 15
+      material: IRON_PICKAXE
+      name: "<gradient:#56AB2F:#A8E063>ʙʟᴏᴄᴋs ʙʀᴏᴋᴇɴ</gradient>"
+      lore:
+        - "&8▪ &7ʙʟᴏᴄᴋs ᴍɪɴᴇᴅ"
+        - "&f&l{stat_blocks_broken}"
+
+    blocks_placed:
+      slot: 16
+      material: GRASS_BLOCK
+      name: "<gradient:#56AB2F:#A8E063>ʙʟᴏᴄᴋs ᴘʟᴀᴄᴇᴅ</gradient>"
+      lore:
+        - "&8▪ &7ʙʟᴏᴄᴋs ᴘʟᴀᴄᴇᴅ"
+        - "&f&l{stat_blocks_placed}"
+
+    # Row 3 (slots 18-26): history, symmetric around the row's center (22).
+    first_join:
+      slot: 21
+      material: SUNFLOWER
+      name: "<gradient:#FDC830:#F37335>ꜰɪʀsᴛ ᴊᴏɪɴ</gradient>"
+      lore:
+        - "&8▪ &7ᴍᴇᴍʙᴇʀ sɪɴᴄᴇ"
+        - "&f&l{stat_first_join}"
+
+    last_join:
+      slot: 23
+      material: COMPASS
+      name: "<gradient:#43CEA2:#185A9D>ʟᴀsᴛ ʟᴏɢɪɴ</gradient>"
+      lore:
+        - "&8▪ &7ʟᴀsᴛ sᴇᴇɴ ᴏɴʟɪɴᴇ"
+        - "&f&l{stat_last_join}"
+
+    # Row 4 (slots 27-35) is intentionally left with no items - pure
+    # border glass, kept only for the GUI's overall visual size/balance.
+
+# Checks https://modrinth.com/project/stone-stats for a newer plugin
+# version. Console feedback is always printed once right on startup. If
+# a newer version is found, everyone with stonestats.admin (or OP) is
+# reminded every time they join, until the plugin is updated.
+update-checker:
+  enabled: true
+  check-interval-minutes: 60

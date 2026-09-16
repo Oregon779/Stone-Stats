@@ -1,0 +1,35 @@
+# =====================================================================
+# Stone Stats messages (English)
+#
+# Supported color formats, usable at the same time in any message:
+#   &-codes        e.g. &a, &b, &l
+#   Hex colors     e.g. &#FF00AA
+#   MiniMessage    e.g. <gradient:#ff0000:#0000ff>text</gradient>
+#
+# Note: the GUI item titles/lore live in config.yml (gui.items.*)
+# instead of here, since where/how they're displayed is also
+# configured there.
+# =====================================================================
+
+prefix: "&l&8[&7Stone &e&lStats&8]&r "
+
+general:
+  no-permission: "&c✖ You don't have permission to do this."
+  reload-success: "&a✔ Configuration and messages have been reloaded."
+  player-only: "&c✖ Only players can use this command."
+  player-not-found: "&c✖ Player &f{player} &chas never played on this server."
+  opening-others: "&7Opening stats for &f{player}&7..."
+
+help:
+  header: "<gradient:#9AA5B1:#FFC24A><bold>▬▬▬▬▬ Stone Stats Help ▬▬▬▬▬</bold></gradient>"
+  stats: "&e/stats [player] &8» &7Open your own stats, or another player's"
+  reload: "&e/stonestats reload &8» &7Reload the configuration and messages"
+  checkupdate: "&e/stonestats checkupdate &8» &7Check Modrinth for a new version right now"
+  help: "&e/stonestats help &8» &7Show this help menu"
+
+update:
+  # {version} {current} {behind}
+  available: "&l&8[&7Stone &e&lStats&8]&r &fA new version is available: &a{version} &7(you're on &c{current}&7, &e{behind} &7behind). Check Modrinth to update."
+  versions-behind: "{count} version(s)"
+  versions-behind-unknown: "an unknown number of versions"
+  check-triggered: "&e⟳ &7Checking Modrinth for updates now... &8watch the console for the result."

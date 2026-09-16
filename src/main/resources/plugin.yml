@@ -1,0 +1,29 @@
+name: StoneStats
+version: '1.0.0'
+main: dev.stonestats.plugin.StoneStats
+api-version: '1.21'
+author: Stone Plugins
+description: Stone Stats opens a fast, fully configurable GUI showing every player's kills, deaths, playtime, blocks broken/placed and more.
+folia-supported: false
+softdepend: [PlaceholderAPI]
+
+commands:
+  stats:
+    description: Open the Stone Stats GUI for yourself, or another player if permitted.
+    usage: /stats [player]
+    aliases: [mystats]
+  stonestats:
+    description: Admin command for Stone Stats - reload the plugin, check for updates and view help.
+    usage: /stonestats <reload|help|checkupdate>
+    aliases: [ss, sstats]
+
+permissions:
+  stonestats.use:
+    description: Allows opening your own stats GUI with /stats.
+    default: true
+  stonestats.others:
+    description: Allows viewing another player's stats GUI with /stats <player>.
+    default: op
+  stonestats.admin:
+    description: Access to all Stone Stats admin actions (reload, checkupdate).
+    default: op

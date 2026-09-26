@@ -125,6 +125,10 @@ public class PlayerStats {
         sessionStartMillis = System.currentTimeMillis();
     }
 
+    public boolean isSessionRunning() {
+        return sessionStartMillis >= 0;
+    }
+
     /**
      * Ends the current session, folding its length into the persisted
      * total, and returns the session length in seconds.

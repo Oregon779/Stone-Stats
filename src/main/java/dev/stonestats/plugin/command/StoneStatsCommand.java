@@ -5,6 +5,7 @@ import dev.stonestats.plugin.manager.MessageManager;
 import dev.stonestats.plugin.manager.StatsManager;
 import dev.stonestats.plugin.model.PlayerStats;
 import dev.stonestats.plugin.util.PlayerLookup;
+import dev.stonestats.plugin.util.TextUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -106,17 +107,18 @@ public class StoneStatsCommand implements CommandExecutor, TabCompleter {
 
         String stat = args[2].toLowerCase(Locale.ROOT);
         if (!stat.equals(RESET_ALL) && !RESETTERS.containsKey(stat)) {
-            mm.sendChat(sender, "reset.unknown-stat", Map.of("stat", args[2], "stats", statList));
+            mm.sendChat(sender, "reset.unknown-stat", Map.of("stat", TextUtil.safeInput(args[2]), "stats", statList));
             return;
         }
 
         String requestedName = args[1];
+        String shownName = TextUtil.safeInput(requestedName);
         PlayerLookup.resolve(plugin, sender, requestedName, target -> {
             if (target == null) {
-                mm.sendChat(sender, "general.player-not-found", Map.of("player", requestedName));
+                mm.sendChat(sender, "general.player-not-found", Map.of("player", shownName));
                 return;
             }
-            String name = target.getName() != null ? target.getName() : requestedName;
+            String name = target.getName() != null ? target.getName() : shownName;
             StatsManager statsManager = plugin.getStatsManager();
             if (!statsManager.hasPlayed(target.getUniqueId())) {
                 mm.sendChat(sender, "reset.no-stats", Map.of("player", name));
@@ -130,7 +132,7 @@ public class StoneStatsCommand implements CommandExecutor, TabCompleter {
                 RESETTERS.get(stat).accept(stats);
             }
             statsManager.markDirty();
-            statsManager.saveAsync();
+            statsManager.requestSave();
 
             // Resets can't be undone, so leave a trace of who did what.
             plugin.getLogger().info(sender.getName() + " reset '" + stat + "' for " + name + " (" + target.getUniqueId() + ")");

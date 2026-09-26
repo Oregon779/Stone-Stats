@@ -23,6 +23,12 @@ public final class PlayerLookup {
      * Skips the callback entirely if the requester logged out meanwhile.
      */
     public static void resolve(StoneStats plugin, CommandSender requester, String name, Consumer<OfflinePlayer> callback) {
+        // No Mojang lookup (and no exception from an over-long profile name)
+        // for input that can't be a player name anyway.
+        if (!TextUtil.isValidPlayerName(name)) {
+            callback.accept(null);
+            return;
+        }
         // Fast path: getPlayerExact() is an in-memory lookup, safe on the main thread.
         Player online = Bukkit.getPlayerExact(name);
         if (online != null) {

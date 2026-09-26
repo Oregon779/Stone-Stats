@@ -113,6 +113,41 @@ public final class TextUtil {
         return sb.toString();
     }
 
+    /**
+     * Keeps only characters that can appear in a player name or stat key.
+     * Raw command arguments go through PlaceholderAPI and MiniMessage when
+     * echoed back, so "%parseother_...%" or "&lt;click:...&gt;" must never
+     * survive into a message.
+     */
+    public static String safeInput(String input) {
+        StringBuilder sb = new StringBuilder(Math.min(input.length(), 16));
+        for (int i = 0; i < input.length() && sb.length() < 16; i++) {
+            char c = input.charAt(i);
+            if (isNameChar(c)) {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    /** Java names use [A-Za-z0-9_]; '.', '*' and '-' cover Bedrock prefixes (Geyser/Floodgate). */
+    static boolean isNameChar(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+                || c == '_' || c == '.' || c == '*' || c == '-';
+    }
+
+    public static boolean isValidPlayerName(String name) {
+        if (name.isEmpty() || name.length() > 16) {
+            return false;
+        }
+        for (int i = 0; i < name.length(); i++) {
+            if (!isNameChar(name.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static String formatPercent(double ratio) {
         return String.format(Locale.US, "%.0f", Math.max(0.0, Math.min(1.0, ratio)) * 100);
     }

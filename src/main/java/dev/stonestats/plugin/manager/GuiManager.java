@@ -46,9 +46,19 @@ public class GuiManager {
     /** Whose head a PLAYER_HEAD item shows: the GUI's main player, the rival (rival GUI only), or nobody. */
     private enum SkullOwner { NONE, PRIMARY, RIVAL }
 
-    /** Parsed-once stat item: slot/material plus precompiled MiniMessage templates. */
-    private record CompiledStatItem(int slot, Material material, String nameTemplate, List<String> loreTemplates,
-                                     SkullOwner skullOwner) {
+    /** Parsed-once stat item: slot/material plus precompiled text lines. */
+    private record CompiledStatItem(int slot, Material material, Line name, List<Line> lore, SkullOwner skullOwner) {
+    }
+
+    /**
+     * One precompiled MiniMessage template. Lines without {placeholders} or
+     * %papi% placeholders (labels, spacers) are rendered once on load - about
+     * 60% of the MiniMessage work of an open in the default layout.
+     */
+    private record Line(String template, Component fixed) {
+        Component render(MessageManager mm, Map<String, String> placeholders, OfflinePlayer target) {
+            return fixed != null ? fixed : mm.renderPrecompiled(template, placeholders, target);
+        }
     }
 
     /** One parsed GUI (the regular stats GUI under gui.*, or the rival GUI under rival-gui.*). */
@@ -153,14 +163,20 @@ public class GuiManager {
                 continue;
             }
             Material material = parseMaterial(entry.getString("material", "STONE"), Material.STONE);
-            String nameTemplate = mm.precompile(entry.getString("name", key));
-            List<String> loreTemplates = new ArrayList<>();
+            Line name = compileLine(mm, entry.getString("name", key));
+            List<Line> lore = new ArrayList<>();
             for (String line : entry.getStringList("lore")) {
-                loreTemplates.add(mm.precompile(line));
+                lore.add(compileLine(mm, line));
             }
-            parsed.add(new CompiledStatItem(slot, material, nameTemplate, loreTemplates, parseSkullOwner(entry)));
+            parsed.add(new CompiledStatItem(slot, material, name, lore, parseSkullOwner(entry)));
         }
         return parsed;
+    }
+
+    private Line compileLine(MessageManager mm, String raw) {
+        String template = mm.precompile(raw);
+        boolean dynamic = template.indexOf('{') >= 0 || template.indexOf('%') >= 0;
+        return new Line(template, dynamic ? null : mm.renderPrecompiled(template, Map.of(), null));
     }
 
     /** skull-owner: true / self -&gt; the GUI's main player, rival -&gt; the compared player. */
@@ -257,6 +273,12 @@ public class GuiManager {
         Material material = Material.matchMaterial(raw);
         if (material == null) {
             plugin.getLogger().warning("Unknown material '" + raw + "' in config.yml, using " + fallback + " instead.");
+            return fallback;
+        }
+        // Blocks without an item form (WALL_TORCH, WATER, ...) make new ItemStack() throw,
+        // which would abort loading the whole GUI.
+        if (!material.isItem()) {
+            plugin.getLogger().warning("Material '" + raw + "' in config.yml is not an item, using " + fallback + " instead.");
             return fallback;
         }
         return material;
@@ -362,10 +384,10 @@ public class GuiManager {
         ItemStack item = new ItemStack(def.material());
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.displayName(mm.renderPrecompiled(def.nameTemplate(), placeholders, target));
-            List<Component> lore = new ArrayList<>(def.loreTemplates().size());
-            for (String template : def.loreTemplates()) {
-                lore.add(mm.renderPrecompiled(template, placeholders, target));
+            meta.displayName(def.name().render(mm, placeholders, target));
+            List<Component> lore = new ArrayList<>(def.lore().size());
+            for (Line line : def.lore()) {
+                lore.add(line.render(mm, placeholders, target));
             }
             meta.lore(lore);
             // PERFORMANCE/VISUAL: any weapon/tool/armor material (swords,
@@ -401,7 +423,10 @@ public class GuiManager {
     }
 
     public boolean isStatsInventory(Inventory inventory) {
-        return inventory.getHolder() instanceof StatsHolder;
+        // PERFORMANCE: this runs for every inventory click on the server. The
+        // plain getHolder() copies a container block's whole state (items +
+        // NBT) into a snapshot each time; getHolder(false) skips that copy.
+        return inventory != null && inventory.getHolder(false) instanceof StatsHolder;
     }
 
     public void clearCooldown(UUID uuid) {

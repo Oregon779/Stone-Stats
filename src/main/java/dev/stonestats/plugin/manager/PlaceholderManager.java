@@ -21,6 +21,8 @@ import java.util.function.LongFunction;
  */
 public class PlaceholderManager {
 
+    private static final String UNTRACKED = "-";
+
     private final StoneStats plugin;
 
     public PlaceholderManager(StoneStats plugin) {
@@ -34,15 +36,17 @@ public class PlaceholderManager {
         placeholders.put("player_sc", TextUtil.toSmallCaps(target.getName() != null ? target.getName() : "Unknown"));
         placeholders.put("uuid", target.getUniqueId().toString());
 
+        // Disabled stats (track.* false) render "-", as config.yml documents.
+        ConfigManager cfg = plugin.getConfigManager();
         int kills = stats.getKills();
         int deaths = stats.getDeaths();
-        placeholders.put("stat_kills", String.valueOf(kills));
-        placeholders.put("stat_deaths", String.valueOf(deaths));
-        placeholders.put("stat_kd", formatRatio(kills, deaths));
-        placeholders.put("stat_mob_kills", String.valueOf(stats.getMobKills()));
-        placeholders.put("stat_blocks_broken", String.valueOf(stats.getBlocksBroken()));
-        placeholders.put("stat_blocks_placed", String.valueOf(stats.getBlocksPlaced()));
-        placeholders.put("stat_playtime", formatDuration(stats.getLivePlaytimeSeconds()));
+        placeholders.put("stat_kills", cfg.isTrackKills() ? String.valueOf(kills) : UNTRACKED);
+        placeholders.put("stat_deaths", cfg.isTrackDeaths() ? String.valueOf(deaths) : UNTRACKED);
+        placeholders.put("stat_kd", cfg.isTrackKills() && cfg.isTrackDeaths() ? formatRatio(kills, deaths) : UNTRACKED);
+        placeholders.put("stat_mob_kills", cfg.isTrackMobKills() ? String.valueOf(stats.getMobKills()) : UNTRACKED);
+        placeholders.put("stat_blocks_broken", cfg.isTrackBlocksBroken() ? String.valueOf(stats.getBlocksBroken()) : UNTRACKED);
+        placeholders.put("stat_blocks_placed", cfg.isTrackBlocksPlaced() ? String.valueOf(stats.getBlocksPlaced()) : UNTRACKED);
+        placeholders.put("stat_playtime", cfg.isTrackPlaytime() ? formatDuration(stats.getLivePlaytimeSeconds()) : UNTRACKED);
         placeholders.put("stat_first_join", formatDate(stats.getFirstJoinMillis()));
         placeholders.put("stat_last_join", formatDate(stats.getLastJoinMillis()));
 
@@ -78,21 +82,27 @@ public class PlaceholderManager {
         buildStatPlaceholders(self, selfStats).forEach((key, value) -> placeholders.put("self_" + key, value));
         buildStatPlaceholders(rival, rivalStats).forEach((key, value) -> placeholders.put("rival_" + key, value));
 
+        ConfigManager cfg = plugin.getConfigManager();
         Comparison c = new Comparison(formats, placeholders.get("rival_player"));
-        placeholders.put("compare_kills", c.compare(selfStats.getKills(), rivalStats.getKills(), false, String::valueOf));
-        placeholders.put("compare_deaths", c.compare(selfStats.getDeaths(), rivalStats.getDeaths(), true, String::valueOf));
+        placeholders.put("compare_kills", c.compare(cfg.isTrackKills(),
+                selfStats.getKills(), rivalStats.getKills(), false, String::valueOf));
+        placeholders.put("compare_deaths", c.compare(cfg.isTrackDeaths(),
+                selfStats.getDeaths(), rivalStats.getDeaths(), true, String::valueOf));
         // K/D and playtime are compared at display precision, so the verdict
         // never reads "ahead by 0.0" or "ahead by 0m".
-        placeholders.put("compare_kd", c.compare(
+        placeholders.put("compare_kd", c.compare(cfg.isTrackKills() && cfg.isTrackDeaths(),
                 Math.round(kdRatio(selfStats.getKills(), selfStats.getDeaths()) * 10),
                 Math.round(kdRatio(rivalStats.getKills(), rivalStats.getDeaths()) * 10),
                 false, tenths -> String.format(Locale.US, "%.1f", tenths / 10.0)));
-        placeholders.put("compare_mob_kills", c.compare(selfStats.getMobKills(), rivalStats.getMobKills(), false, String::valueOf));
-        placeholders.put("compare_playtime", c.compare(
+        placeholders.put("compare_mob_kills", c.compare(cfg.isTrackMobKills(),
+                selfStats.getMobKills(), rivalStats.getMobKills(), false, String::valueOf));
+        placeholders.put("compare_playtime", c.compare(cfg.isTrackPlaytime(),
                 selfStats.getLivePlaytimeSeconds() / 60, rivalStats.getLivePlaytimeSeconds() / 60,
                 false, minutes -> formatDuration(minutes * 60)));
-        placeholders.put("compare_blocks_broken", c.compare(selfStats.getBlocksBroken(), rivalStats.getBlocksBroken(), false, String::valueOf));
-        placeholders.put("compare_blocks_placed", c.compare(selfStats.getBlocksPlaced(), rivalStats.getBlocksPlaced(), false, String::valueOf));
+        placeholders.put("compare_blocks_broken", c.compare(cfg.isTrackBlocksBroken(),
+                selfStats.getBlocksBroken(), rivalStats.getBlocksBroken(), false, String::valueOf));
+        placeholders.put("compare_blocks_placed", c.compare(cfg.isTrackBlocksPlaced(),
+                selfStats.getBlocksPlaced(), rivalStats.getBlocksPlaced(), false, String::valueOf));
 
         placeholders.put("compare_self_leads", String.valueOf(c.selfLeads));
         placeholders.put("compare_rival_leads", String.valueOf(c.rivalLeads));
@@ -110,7 +120,10 @@ public class PlaceholderManager {
             this.rivalName = rivalName;
         }
 
-        private String compare(long self, long rival, boolean lowerWins, LongFunction<String> diffFormatter) {
+        private String compare(boolean tracked, long self, long rival, boolean lowerWins, LongFunction<String> diffFormatter) {
+            if (!tracked) {
+                return UNTRACKED;
+            }
             String template;
             if (self == rival) {
                 template = formats.tie();
@@ -154,12 +167,6 @@ public class PlaceholderManager {
         if (millis <= 0) {
             return "-";
         }
-        String pattern = plugin.getConfigManager().getDateFormat();
-        try {
-            return new SimpleDateFormat(pattern).format(new Date(millis));
-        } catch (IllegalArgumentException ex) {
-            plugin.getLogger().warning("Invalid date-format '" + pattern + "' in config.yml, using default instead.");
-            return new SimpleDateFormat("dd.MM.yyyy HH:mm").format(new Date(millis));
-        }
+        return new SimpleDateFormat(plugin.getConfigManager().getDateFormat()).format(new Date(millis));
     }
 }

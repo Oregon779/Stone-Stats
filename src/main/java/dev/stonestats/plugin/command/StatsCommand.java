@@ -3,6 +3,7 @@ package dev.stonestats.plugin.command;
 import dev.stonestats.plugin.StoneStats;
 import dev.stonestats.plugin.manager.MessageManager;
 import dev.stonestats.plugin.util.PlayerLookup;
+import dev.stonestats.plugin.util.TextUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
@@ -65,12 +66,13 @@ public class StatsCommand implements CommandExecutor, TabCompleter {
         }
 
         String requestedName = args[0];
+        String shownName = TextUtil.safeInput(requestedName);
         PlayerLookup.resolve(plugin, viewer, requestedName, target -> {
             if (target == null) {
-                mm.sendChat(viewer, "general.player-not-found", Map.of("player", requestedName));
+                mm.sendChat(viewer, "general.player-not-found", Map.of("player", shownName));
                 return;
             }
-            mm.sendChat(viewer, "general.opening-others", Map.of("player", nameOf(target, requestedName)));
+            mm.sendChat(viewer, "general.opening-others", Map.of("player", nameOf(target, shownName)));
             plugin.getGuiManager().open(viewer, target);
         });
         return true;
@@ -87,33 +89,34 @@ public class StatsCommand implements CommandExecutor, TabCompleter {
         }
 
         String requestedName = args[1];
+        String shownName = TextUtil.safeInput(requestedName);
         if (!viewer.hasPermission("stonestats.others")) {
             // Without stonestats.others only players the viewer can currently
             // see count - no offline stats, and vanished staff stay hidden.
             Player online = Bukkit.getPlayerExact(requestedName);
             if (online == null || !viewer.canSee(online)) {
-                mm.sendChat(viewer, "rival.not-online", Map.of("player", requestedName));
+                mm.sendChat(viewer, "rival.not-online", Map.of("player", shownName));
                 return;
             }
-            openRival(viewer, online, requestedName, mm);
+            openRival(viewer, online, shownName, mm);
             return;
         }
 
         PlayerLookup.resolve(plugin, viewer, requestedName, target -> {
             if (target == null) {
-                mm.sendChat(viewer, "general.player-not-found", Map.of("player", requestedName));
+                mm.sendChat(viewer, "general.player-not-found", Map.of("player", shownName));
                 return;
             }
-            openRival(viewer, target, requestedName, mm);
+            openRival(viewer, target, shownName, mm);
         });
     }
 
-    private void openRival(Player viewer, OfflinePlayer rival, String requestedName, MessageManager mm) {
+    private void openRival(Player viewer, OfflinePlayer rival, String shownName, MessageManager mm) {
         if (rival.getUniqueId().equals(viewer.getUniqueId())) {
             mm.sendChat(viewer, "rival.self", null);
             return;
         }
-        mm.sendChat(viewer, "rival.opening", Map.of("player", nameOf(rival, requestedName)));
+        mm.sendChat(viewer, "rival.opening", Map.of("player", nameOf(rival, shownName)));
         plugin.getGuiManager().openRival(viewer, rival);
     }
 

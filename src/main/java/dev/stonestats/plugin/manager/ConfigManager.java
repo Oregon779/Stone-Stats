@@ -7,11 +7,17 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public class ConfigManager {
 
     private static final String RESOURCE_PATH = "config.yml";
+    private static final String DEFAULT_DATE_FORMAT = "dd.MM.yyyy HH:mm";
+    // Item lists are the admin's: deleted entries must stay deleted.
+    private static final Set<String> USER_OWNED_SECTIONS = Set.of("gui.items", "gui.equipment.slots", "rival-gui.items");
 
     private final StoneStats plugin;
     private File configFile;
@@ -35,6 +41,7 @@ public class ConfigManager {
     private boolean trackPlaytime;
     private long guiOpenCooldownMillis;
     private int guiRows;
+    private String dateFormat = DEFAULT_DATE_FORMAT;
 
     public ConfigManager(StoneStats plugin) {
         this.plugin = plugin;
@@ -47,7 +54,7 @@ public class ConfigManager {
         }
 
         try {
-            ConfigUpdater.UpdateResult result = ConfigUpdater.update(plugin, RESOURCE_PATH, configFile);
+            ConfigUpdater.UpdateResult result = ConfigUpdater.update(plugin, RESOURCE_PATH, configFile, USER_OWNED_SECTIONS);
             if (result.addedKeys() > 0) {
                 plugin.getLogger().info("Added " + result.addedKeys() + " new option(s) to config.yml");
             }
@@ -55,11 +62,20 @@ public class ConfigManager {
             plugin.getLogger().warning("Failed to update config.yml: " + ex.getMessage());
         }
 
-        config = YamlConfiguration.loadConfiguration(configFile);
+        config = ConfigUpdater.loadOrDefaults(plugin, RESOURCE_PATH, configFile);
         cacheHotPathValues();
     }
 
     private void cacheHotPathValues() {
+        String pattern = config.getString("date-format", DEFAULT_DATE_FORMAT);
+        try {
+            new SimpleDateFormat(pattern);
+            dateFormat = pattern;
+        } catch (IllegalArgumentException ex) {
+            // Checked once here instead of failing (and logging) on every GUI open.
+            plugin.getLogger().warning("Invalid date-format '" + pattern + "' in config.yml, using " + DEFAULT_DATE_FORMAT + " instead.");
+            dateFormat = DEFAULT_DATE_FORMAT;
+        }
         trackKills = config.getBoolean("track.kills", true);
         trackDeaths = config.getBoolean("track.deaths", true);
         trackMobKills = config.getBoolean("track.mob-kills", true);
@@ -99,11 +115,13 @@ public class ConfigManager {
     }
 
     public String getLanguage() {
-        return config.getString("language", "en");
+        // Language folders are lowercase; "DE" must not silently fall back to English on Linux.
+        return config.getString("language", "en").toLowerCase(Locale.ROOT);
     }
 
+    /** Always a valid SimpleDateFormat pattern (validated once on load). */
     public String getDateFormat() {
-        return config.getString("date-format", "dd.MM.yyyy HH:mm");
+        return dateFormat;
     }
 
     // Fast, allocation-free getters for the hot-path listener checks -

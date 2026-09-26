@@ -44,6 +44,7 @@
 #
 # Missing options are added automatically on plugin updates. Existing
 # values you changed are never overwritten, even in nested sections.
+# GUI items you delete (gui.items, rival-gui.items) stay deleted.
 # =====================================================================
 
 language: en

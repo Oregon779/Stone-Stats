@@ -57,16 +57,13 @@ public class StatsListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        PlayerStats stats = plugin.getStatsManager().getOrCreate(player.getUniqueId());
-        if (plugin.getConfigManager().isTrackPlaytime()) {
-            stats.endSession();
-        }
+        // Unconditional: a session may still be running if track.playtime
+        // was switched off mid-session; endSession() is a no-op otherwise.
+        plugin.getStatsManager().getOrCreate(player.getUniqueId()).endSession();
         plugin.getStatsManager().markDirty();
-        // Quits are infrequent relative to block/kill events, so an async
-        // save here (on top of the regular autosave interval) is cheap
-        // insurance against data loss without ever blocking the main
-        // thread. StatsManager serializes concurrent writers internally.
-        plugin.getStatsManager().saveAsync();
+        // Insurance against data loss on top of the autosave interval;
+        // bursts of quits are coalesced into one background save.
+        plugin.getStatsManager().requestSave();
 
         // Drop the /stats open-cooldown entry for this player - otherwise
         // it would sit in memory forever for anyone who ever ran /stats,
@@ -74,7 +71,9 @@ public class StatsListener implements Listener {
         plugin.getGuiManager().clearCooldown(player.getUniqueId());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    // ignoreCancelled: Paper lets plugins cancel deaths (revive/duel plugins) -
+    // a death that never happened must not count.
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerDeath(PlayerDeathEvent event) {
         ConfigManager cfg = plugin.getConfigManager();
         boolean trackDeaths = cfg.isTrackDeaths();
@@ -93,13 +92,14 @@ public class StatsListener implements Listener {
         }
 
         Player killer = victim.getKiller();
-        if (trackKills && killer != null) {
+        // Your own arrow/TNT makes you your own killer - that's no kill.
+        if (trackKills && killer != null && !killer.getUniqueId().equals(victim.getUniqueId())) {
             stats.getOrCreate(killer.getUniqueId()).incrementKills();
             stats.markDirty();
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityDeath(EntityDeathEvent event) {
         // PlayerDeathEvent (handled above) already covers players; this
         // only needs to count non-player mobs killed by a player. The

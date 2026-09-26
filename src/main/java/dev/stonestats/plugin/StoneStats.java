@@ -12,14 +12,17 @@ import dev.stonestats.plugin.manager.PlaceholderApiHook;
 import dev.stonestats.plugin.manager.PlaceholderManager;
 import dev.stonestats.plugin.manager.StatsManager;
 import dev.stonestats.plugin.manager.UpdateChecker;
+import dev.stonestats.plugin.model.PlayerStats;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public final class StoneStats extends JavaPlugin {
+// Not final: MockBukkit subclasses the main class to load it in tests.
+public class StoneStats extends JavaPlugin {
 
     private ConfigManager configManager;
     private MessageManager messageManager;
@@ -48,6 +51,8 @@ public final class StoneStats extends JavaPlugin {
         getLogger().info("Loading player stats...");
         statsManager = new StatsManager(this);
         statsManager.load();
+        // Only non-empty after a /reload: those players get no join event.
+        syncPlaytimeSessions();
 
         placeholderManager = new PlaceholderManager(this);
         equipmentManager = new EquipmentManager(this);
@@ -78,9 +83,20 @@ public final class StoneStats extends JavaPlugin {
         if (updateChecker != null) {
             updateChecker.stop();
         }
+        // Saving comes first: nothing below may be able to cost stats.
         if (statsManager != null) {
             statsManager.stopAutoSave();
+            statsManager.endAllSessions();
             statsManager.saveNow();
+        }
+        if (guiManager != null) {
+            // After a /reload the new plugin instance no longer recognizes
+            // these GUIs as its own, so their items could be taken out.
+            for (Player player : getServer().getOnlinePlayers()) {
+                if (guiManager.isStatsInventory(player.getOpenInventory().getTopInventory())) {
+                    player.closeInventory();
+                }
+            }
         }
         getLogger().info("Stone Stats has been disabled.");
     }
@@ -90,8 +106,22 @@ public final class StoneStats extends JavaPlugin {
         placeholderApiHook = new PlaceholderApiHook();
         messageManager.load();
         guiManager.load();
+        syncPlaytimeSessions();
         statsManager.startAutoSave();
         updateChecker.start();
+    }
+
+    /** Makes the running sessions of online players match track.playtime. */
+    private void syncPlaytimeSessions() {
+        boolean track = configManager.isTrackPlaytime();
+        for (Player player : getServer().getOnlinePlayers()) {
+            PlayerStats stats = statsManager.getOrCreate(player.getUniqueId());
+            if (!track) {
+                stats.endSession();
+            } else if (!stats.isSessionRunning()) {
+                stats.startSession();
+            }
+        }
     }
 
     private void registerCommands() {

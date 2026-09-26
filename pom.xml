@@ -53,6 +53,21 @@
             <version>2.11.6</version>
             <scope>provided</scope>
         </dependency>
+
+        <!-- Tests only: MockBukkit simulates a Paper server (players, events,
+             scheduler) so listeners and commands run without a real server. -->
+        <dependency>
+            <groupId>org.mockbukkit.mockbukkit</groupId>
+            <artifactId>mockbukkit-v26.2</artifactId>
+            <version>4.116.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>6.1.3</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -72,6 +87,11 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
                 <version>3.3.1</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.6.0</version>
             </plugin>
         </plugins>
     </build>

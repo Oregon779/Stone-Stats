@@ -107,7 +107,7 @@ public class MessageManager {
             plugin.getLogger().warning("Failed to update messages for '" + lang + "': " + ex.getMessage());
         }
 
-        languageCache.put(lang, YamlConfiguration.loadConfiguration(file));
+        languageCache.put(lang, ConfigUpdater.loadOrDefaults(plugin, resourcePath, file));
     }
 
     public String getRaw(String path) {

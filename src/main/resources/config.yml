@@ -209,6 +209,140 @@ gui:
     # Row 4 (slots 27-35) is intentionally left with no items - pure
     # border glass, kept only for the GUI's overall visual size/balance.
 
+# =====================================================================
+# Rival GUI: /stats rival <player> compares the viewer's own stats with
+# another player's, side by side. 3 rows (27 slots), symmetric like the
+# main GUI:
+#   Row 1: your head, "VS", the rival's head
+#   Row 2: one item per compared stat
+#   Row 3: pure border
+#
+# Placeholders: every placeholder of the main GUI works here twice,
+# prefixed with self_ (the viewer) or rival_ (the other player), e.g.
+# {self_player}, {rival_player_sc}, {self_stat_kills}, {rival_stat_kd}.
+# On top of that:
+#   {compare_kills} {compare_deaths} {compare_kd} {compare_mob_kills}
+#   {compare_playtime} {compare_blocks_broken} {compare_blocks_placed}
+#       - who leads in that stat, rendered with the "compare" texts
+#         below (for deaths, FEWER counts as leading)
+#   {compare_self_leads} / {compare_rival_leads}
+#       - in how many of those 7 stats the viewer / the rival leads
+#
+# skull-owner: self shows the viewer's head, skull-owner: rival the
+# other player's.
+# =====================================================================
+rival-gui:
+  title: "<gradient:#6A11CB:#2575FC><bold>» {self_player_sc} ᴠs {rival_player_sc} «</bold></gradient>"
+
+  rows: 3
+
+  fill-empty-slots: true
+  filler-item: GRAY_STAINED_GLASS_PANE
+  filler-name: " "
+
+  # {diff} = gap between both values, {rival_player} = the rival's name
+  compare:
+    ahead: "&a▲ &7ʏᴏᴜ ʟᴇᴀᴅ ʙʏ &a&l{diff}"
+    behind: "&c▼ &7{rival_player} ʟᴇᴀᴅs ʙʏ &c&l{diff}"
+    tie: "&e● &7ᴛɪᴇᴅ"
+
+  items:
+    # --- Row 1: both players, symmetric around the center (4) ---
+    self:
+      slot: 2
+      material: PLAYER_HEAD
+      skull-owner: self
+      name: "<gradient:#F7971E:#FFD200><bold>{self_player}</bold></gradient>"
+      lore:
+        - "&8▪ &7sᴛᴀᴛs ʟᴇᴅ"
+        - "&f&l{compare_self_leads} &7/ 7"
+
+    versus:
+      slot: 4
+      material: NETHER_STAR
+      name: "<gradient:#6A11CB:#2575FC><bold>ᴠs</bold></gradient>"
+      lore: []
+
+    rival:
+      slot: 6
+      material: PLAYER_HEAD
+      skull-owner: rival
+      name: "<gradient:#F857A6:#FF5858><bold>{rival_player}</bold></gradient>"
+      lore:
+        - "&8▪ &7sᴛᴀᴛs ʟᴇᴅ"
+        - "&f&l{compare_rival_leads} &7/ 7"
+
+    # --- Row 2: compared stats (7 items, border only at 9/17) ---
+    kills:
+      slot: 10
+      material: IRON_SWORD
+      name: "<gradient:#F857A6:#FF5858>ᴋɪʟʟs</gradient>"
+      lore:
+        - "&8▪ &7{self_player}: &f&l{self_stat_kills}"
+        - "&8▪ &7{rival_player}: &f&l{rival_stat_kills}"
+        - " "
+        - "{compare_kills}"
+
+    deaths:
+      slot: 11
+      material: SKELETON_SKULL
+      name: "<gradient:#C471ED:#F64F59>ᴅᴇᴀᴛʜs</gradient>"
+      lore:
+        - "&8▪ &7{self_player}: &f&l{self_stat_deaths}"
+        - "&8▪ &7{rival_player}: &f&l{rival_stat_deaths}"
+        - " "
+        - "{compare_deaths}"
+
+    kd:
+      slot: 12
+      material: DIAMOND_SWORD
+      name: "<gradient:#F7971E:#FFD200>ᴋ/ᴅ ʀᴀᴛɪᴏ</gradient>"
+      lore:
+        - "&8▪ &7{self_player}: &f&l{self_stat_kd}"
+        - "&8▪ &7{rival_player}: &f&l{rival_stat_kd}"
+        - " "
+        - "{compare_kd}"
+
+    mob_kills:
+      slot: 13
+      material: ZOMBIE_HEAD
+      name: "<gradient:#56AB2F:#A8E063>ᴍᴏʙ ᴋɪʟʟs</gradient>"
+      lore:
+        - "&8▪ &7{self_player}: &f&l{self_stat_mob_kills}"
+        - "&8▪ &7{rival_player}: &f&l{rival_stat_mob_kills}"
+        - " "
+        - "{compare_mob_kills}"
+
+    playtime:
+      slot: 14
+      material: CLOCK
+      name: "<gradient:#43CEA2:#185A9D>ᴘʟᴀʏᴛɪᴍᴇ</gradient>"
+      lore:
+        - "&8▪ &7{self_player}: &f&l{self_stat_playtime}"
+        - "&8▪ &7{rival_player}: &f&l{rival_stat_playtime}"
+        - " "
+        - "{compare_playtime}"
+
+    blocks_broken:
+      slot: 15
+      material: IRON_PICKAXE
+      name: "<gradient:#56AB2F:#A8E063>ʙʟᴏᴄᴋs ʙʀᴏᴋᴇɴ</gradient>"
+      lore:
+        - "&8▪ &7{self_player}: &f&l{self_stat_blocks_broken}"
+        - "&8▪ &7{rival_player}: &f&l{rival_stat_blocks_broken}"
+        - " "
+        - "{compare_blocks_broken}"
+
+    blocks_placed:
+      slot: 16
+      material: GRASS_BLOCK
+      name: "<gradient:#56AB2F:#A8E063>ʙʟᴏᴄᴋs ᴘʟᴀᴄᴇᴅ</gradient>"
+      lore:
+        - "&8▪ &7{self_player}: &f&l{self_stat_blocks_placed}"
+        - "&8▪ &7{rival_player}: &f&l{rival_stat_blocks_placed}"
+        - " "
+        - "{compare_blocks_placed}"
+
 # Checks https://modrinth.com/project/stone-stats for a newer plugin
 # version. Console feedback is always printed once right on startup. If
 # a newer version is found, everyone with stonestats.admin (or OP) is

@@ -43,9 +43,17 @@ import java.util.function.Function;
  */
 public class GuiManager {
 
+    /** Whose head a PLAYER_HEAD item shows: the GUI's main player, the rival (rival GUI only), or nobody. */
+    private enum SkullOwner { NONE, PRIMARY, RIVAL }
+
     /** Parsed-once stat item: slot/material plus precompiled MiniMessage templates. */
     private record CompiledStatItem(int slot, Material material, String nameTemplate, List<String> loreTemplates,
-                                     boolean skullOwner) {
+                                     SkullOwner skullOwner) {
+    }
+
+    /** One parsed GUI (the regular stats GUI under gui.*, or the rival GUI under rival-gui.*). */
+    private record Layout(int size, boolean fillEmptySlots, String titleTemplate, ItemStack filler,
+                          List<CompiledStatItem> items) {
     }
 
     /** Parsed-once sound setting - avoids Sound.valueOf() + config lookups on every click. */
@@ -59,14 +67,12 @@ public class GuiManager {
     }
 
     private final StoneStats plugin;
-    private List<CompiledStatItem> items = new ArrayList<>();
+    private Layout mainLayout;
+    private Layout rivalLayout;
+    private PlaceholderManager.CompareFormats compareFormats;
     private List<EquipmentSlotDef> equipmentSlots = new ArrayList<>();
     private final Map<String, SoundSetting> soundSettings = new HashMap<>();
-    private ItemStack fillerTemplate;
     private ItemStack offlineGearTemplate;
-    private boolean fillEmptySlots;
-    private String titleTemplate = "";
-    private int size = 54;
 
     // Per-player last-open timestamp, used to throttle /stats spam. Sized
     // by unique players who have ever opened the GUI (like PlayerStats),
@@ -84,18 +90,13 @@ public class GuiManager {
         ConfigManager cfg = plugin.getConfigManager();
         MessageManager mm = plugin.getMessageManager();
 
-        size = cfg.getGuiRows() * 9;
-        fillEmptySlots = cfg.getBoolean("gui.fill-empty-slots", true);
-        titleTemplate = mm.precompile(cfg.getString("gui.title", "&6{player}'s Stats"));
-
-        Material fillerMaterial = parseMaterial(cfg.getString("gui.filler-item", "BLACK_STAINED_GLASS_PANE"), Material.BLACK_STAINED_GLASS_PANE);
-        fillerTemplate = new ItemStack(fillerMaterial);
-        ItemMeta fillerMeta = fillerTemplate.getItemMeta();
-        if (fillerMeta != null) {
-            fillerMeta.displayName(mm.format(cfg.getString("gui.filler-name", " "), null));
-            fillerMeta.addItemFlags(ItemFlag.values());
-            fillerTemplate.setItemMeta(fillerMeta);
-        }
+        mainLayout = parseLayout(cfg, mm, "gui", cfg.getGuiRows(), "&6{player}'s Stats");
+        int rivalRows = Math.max(1, Math.min(6, cfg.getInt("rival-gui.rows", 3)));
+        rivalLayout = parseLayout(cfg, mm, "rival-gui", rivalRows, "&6{self_player} vs {rival_player}");
+        compareFormats = new PlaceholderManager.CompareFormats(
+                mm.precompile(cfg.getString("rival-gui.compare.ahead", "&a▲ +{diff}")),
+                mm.precompile(cfg.getString("rival-gui.compare.behind", "&c▼ {rival_player} +{diff}")),
+                mm.precompile(cfg.getString("rival-gui.compare.tie", "&e●")));
 
         Material offlineMaterial = parseMaterial(cfg.getString("gui.equipment.offline-item", "BARRIER"), Material.BARRIER);
         offlineGearTemplate = new ItemStack(offlineMaterial);
@@ -115,13 +116,29 @@ public class GuiManager {
         soundSettings.put("open", parseSoundSetting(cfg, "gui.sounds.open."));
         soundSettings.put("click", parseSoundSetting(cfg, "gui.sounds.click."));
 
-        items = parseStatItems(cfg, mm);
-        equipmentSlots = parseEquipmentSlots(cfg);
+        equipmentSlots = parseEquipmentSlots(cfg, mainLayout.size());
     }
 
-    private List<CompiledStatItem> parseStatItems(ConfigManager cfg, MessageManager mm) {
+    private Layout parseLayout(ConfigManager cfg, MessageManager mm, String base, int rows, String defaultTitle) {
+        int size = rows * 9;
+        boolean fillEmptySlots = cfg.getBoolean(base + ".fill-empty-slots", true);
+        String titleTemplate = mm.precompile(cfg.getString(base + ".title", defaultTitle));
+
+        Material fillerMaterial = parseMaterial(cfg.getString(base + ".filler-item", "BLACK_STAINED_GLASS_PANE"), Material.BLACK_STAINED_GLASS_PANE);
+        ItemStack filler = new ItemStack(fillerMaterial);
+        ItemMeta fillerMeta = filler.getItemMeta();
+        if (fillerMeta != null) {
+            fillerMeta.displayName(mm.format(cfg.getString(base + ".filler-name", " "), null));
+            fillerMeta.addItemFlags(ItemFlag.values());
+            filler.setItemMeta(fillerMeta);
+        }
+
+        return new Layout(size, fillEmptySlots, titleTemplate, filler, parseStatItems(cfg, mm, base + ".items", size));
+    }
+
+    private List<CompiledStatItem> parseStatItems(ConfigManager cfg, MessageManager mm, String path, int size) {
         List<CompiledStatItem> parsed = new ArrayList<>();
-        ConfigurationSection itemsSection = cfg.getSection("gui.items");
+        ConfigurationSection itemsSection = cfg.getSection(path);
         if (itemsSection == null) {
             return parsed;
         }
@@ -132,7 +149,7 @@ public class GuiManager {
             }
             int slot = entry.getInt("slot", -1);
             if (slot < 0 || slot >= size) {
-                plugin.getLogger().warning("gui.items." + key + " has an invalid slot (" + slot + "), skipping.");
+                plugin.getLogger().warning(path + "." + key + " has an invalid slot (" + slot + "), skipping.");
                 continue;
             }
             Material material = parseMaterial(entry.getString("material", "STONE"), Material.STONE);
@@ -141,13 +158,24 @@ public class GuiManager {
             for (String line : entry.getStringList("lore")) {
                 loreTemplates.add(mm.precompile(line));
             }
-            boolean skullOwner = entry.getBoolean("skull-owner", false);
-            parsed.add(new CompiledStatItem(slot, material, nameTemplate, loreTemplates, skullOwner));
+            parsed.add(new CompiledStatItem(slot, material, nameTemplate, loreTemplates, parseSkullOwner(entry)));
         }
         return parsed;
     }
 
-    private List<EquipmentSlotDef> parseEquipmentSlots(ConfigManager cfg) {
+    /** skull-owner: true / self -&gt; the GUI's main player, rival -&gt; the compared player. */
+    private SkullOwner parseSkullOwner(ConfigurationSection entry) {
+        if (entry.isBoolean("skull-owner")) {
+            return entry.getBoolean("skull-owner") ? SkullOwner.PRIMARY : SkullOwner.NONE;
+        }
+        return switch (entry.getString("skull-owner", "").toLowerCase(Locale.ROOT)) {
+            case "true", "self" -> SkullOwner.PRIMARY;
+            case "rival" -> SkullOwner.RIVAL;
+            default -> SkullOwner.NONE;
+        };
+    }
+
+    private List<EquipmentSlotDef> parseEquipmentSlots(ConfigManager cfg, int size) {
         List<EquipmentSlotDef> parsed = new ArrayList<>();
         ConfigurationSection section = cfg.getSection("gui.equipment.slots");
         if (section == null) {
@@ -240,41 +268,73 @@ public class GuiManager {
      * inside the configured open-cooldown - see {@link #lastOpenMillis}.
      */
     public boolean open(Player viewer, OfflinePlayer target) {
-        long cooldown = plugin.getConfigManager().getGuiOpenCooldownMillis();
-        if (cooldown > 0) {
-            long now = System.currentTimeMillis();
-            Long last = lastOpenMillis.get(viewer.getUniqueId());
-            if (last != null && now - last < cooldown) {
-                return false;
-            }
-            lastOpenMillis.put(viewer.getUniqueId(), now);
+        if (isOnCooldown(viewer)) {
+            return false;
         }
 
         PlayerStats stats = plugin.getStatsManager().getView(target.getUniqueId());
         Map<String, String> placeholders = plugin.getPlaceholderManager().buildStatPlaceholders(target, stats);
-        MessageManager mm = plugin.getMessageManager();
 
-        Component title = mm.renderPrecompiled(titleTemplate, placeholders, target);
-
-        StatsHolder holder = new StatsHolder(target.getUniqueId());
-        Inventory inventory = Bukkit.createInventory(holder, size, title);
-        holder.setInventory(inventory);
-
-        if (fillEmptySlots) {
-            for (int slot = 0; slot < size; slot++) {
-                inventory.setItem(slot, fillerTemplate);
-            }
-        }
-
-        for (CompiledStatItem def : items) {
-            inventory.setItem(def.slot(), buildItem(def, placeholders, mm, target));
-        }
-
+        Inventory inventory = render(mainLayout, placeholders, target, null);
         placeEquipment(inventory, target);
 
         viewer.openInventory(inventory);
         playSound(viewer, "open");
         return true;
+    }
+
+    /**
+     * Opens the rival GUI for {@code viewer}, comparing their own stats with
+     * {@code rival}'s. Same open-cooldown as {@link #open(Player, OfflinePlayer)}.
+     */
+    public boolean openRival(Player viewer, OfflinePlayer rival) {
+        if (isOnCooldown(viewer)) {
+            return false;
+        }
+
+        StatsManager statsManager = plugin.getStatsManager();
+        Map<String, String> placeholders = plugin.getPlaceholderManager().buildRivalPlaceholders(
+                viewer, statsManager.getView(viewer.getUniqueId()),
+                rival, statsManager.getView(rival.getUniqueId()),
+                compareFormats);
+
+        viewer.openInventory(render(rivalLayout, placeholders, viewer, rival));
+        playSound(viewer, "open");
+        return true;
+    }
+
+    private boolean isOnCooldown(Player viewer) {
+        long cooldown = plugin.getConfigManager().getGuiOpenCooldownMillis();
+        if (cooldown <= 0) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        Long last = lastOpenMillis.get(viewer.getUniqueId());
+        if (last != null && now - last < cooldown) {
+            return true;
+        }
+        lastOpenMillis.put(viewer.getUniqueId(), now);
+        return false;
+    }
+
+    private Inventory render(Layout layout, Map<String, String> placeholders, OfflinePlayer primary, OfflinePlayer rival) {
+        MessageManager mm = plugin.getMessageManager();
+        Component title = mm.renderPrecompiled(layout.titleTemplate(), placeholders, primary);
+
+        StatsHolder holder = new StatsHolder(primary.getUniqueId());
+        Inventory inventory = Bukkit.createInventory(holder, layout.size(), title);
+        holder.setInventory(inventory);
+
+        if (layout.fillEmptySlots()) {
+            for (int slot = 0; slot < layout.size(); slot++) {
+                inventory.setItem(slot, layout.filler());
+            }
+        }
+
+        for (CompiledStatItem def : layout.items()) {
+            inventory.setItem(def.slot(), buildItem(def, placeholders, mm, primary, rival));
+        }
+        return inventory;
     }
 
     private void placeEquipment(Inventory inventory, OfflinePlayer target) {
@@ -297,7 +357,8 @@ public class GuiManager {
         }
     }
 
-    private ItemStack buildItem(CompiledStatItem def, Map<String, String> placeholders, MessageManager mm, OfflinePlayer target) {
+    private ItemStack buildItem(CompiledStatItem def, Map<String, String> placeholders, MessageManager mm,
+                                OfflinePlayer target, OfflinePlayer rival) {
         ItemStack item = new ItemStack(def.material());
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
@@ -315,12 +376,16 @@ public class GuiManager {
             // decorative stat icons, not real equipment, so every flag is
             // hidden to guarantee only our own lore is ever shown.
             meta.addItemFlags(ItemFlag.values());
-            if (def.skullOwner() && meta instanceof SkullMeta skullMeta) {
-                // Real player head with the target's actual skin, used for
-                // the profile header item - a purely cosmetic touch that's
-                // still config-driven (skull-owner: true) rather than
-                // hardcoded to one slot.
-                skullMeta.setOwningPlayer(target);
+            OfflinePlayer skullOwner = switch (def.skullOwner()) {
+                case PRIMARY -> target;
+                case RIVAL -> rival;
+                case NONE -> null;
+            };
+            if (skullOwner != null && meta instanceof SkullMeta skullMeta) {
+                // Real player head with that player's actual skin - a purely
+                // cosmetic touch that's still config-driven (skull-owner)
+                // rather than hardcoded to one slot.
+                skullMeta.setOwningPlayer(skullOwner);
             }
             item.setItemMeta(meta);
         }

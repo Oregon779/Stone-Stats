@@ -11,6 +11,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.LongFunction;
 
 /**
  * Builds the {@code {placeholder}} -> value map used when rendering the
@@ -61,11 +62,77 @@ public class PlaceholderManager {
         return placeholders;
     }
 
-    private String formatRatio(int kills, int deaths) {
-        if (deaths <= 0) {
-            return String.format(Locale.US, "%.1f", (double) kills);
+    /** Precompiled rival-gui.compare texts; {diff} and {rival_player} are filled in per render. */
+    public record CompareFormats(String ahead, String behind, String tie) {
+    }
+
+    /**
+     * Placeholders for the rival GUI: every regular placeholder twice
+     * (prefixed self_ / rival_), plus one {compare_x} verdict per stat and
+     * the number of stats each side leads in.
+     */
+    public Map<String, String> buildRivalPlaceholders(OfflinePlayer self, PlayerStats selfStats,
+                                                      OfflinePlayer rival, PlayerStats rivalStats,
+                                                      CompareFormats formats) {
+        Map<String, String> placeholders = new HashMap<>();
+        buildStatPlaceholders(self, selfStats).forEach((key, value) -> placeholders.put("self_" + key, value));
+        buildStatPlaceholders(rival, rivalStats).forEach((key, value) -> placeholders.put("rival_" + key, value));
+
+        Comparison c = new Comparison(formats, placeholders.get("rival_player"));
+        placeholders.put("compare_kills", c.compare(selfStats.getKills(), rivalStats.getKills(), false, String::valueOf));
+        placeholders.put("compare_deaths", c.compare(selfStats.getDeaths(), rivalStats.getDeaths(), true, String::valueOf));
+        // K/D and playtime are compared at display precision, so the verdict
+        // never reads "ahead by 0.0" or "ahead by 0m".
+        placeholders.put("compare_kd", c.compare(
+                Math.round(kdRatio(selfStats.getKills(), selfStats.getDeaths()) * 10),
+                Math.round(kdRatio(rivalStats.getKills(), rivalStats.getDeaths()) * 10),
+                false, tenths -> String.format(Locale.US, "%.1f", tenths / 10.0)));
+        placeholders.put("compare_mob_kills", c.compare(selfStats.getMobKills(), rivalStats.getMobKills(), false, String::valueOf));
+        placeholders.put("compare_playtime", c.compare(
+                selfStats.getLivePlaytimeSeconds() / 60, rivalStats.getLivePlaytimeSeconds() / 60,
+                false, minutes -> formatDuration(minutes * 60)));
+        placeholders.put("compare_blocks_broken", c.compare(selfStats.getBlocksBroken(), rivalStats.getBlocksBroken(), false, String::valueOf));
+        placeholders.put("compare_blocks_placed", c.compare(selfStats.getBlocksPlaced(), rivalStats.getBlocksPlaced(), false, String::valueOf));
+
+        placeholders.put("compare_self_leads", String.valueOf(c.selfLeads));
+        placeholders.put("compare_rival_leads", String.valueOf(c.rivalLeads));
+        return placeholders;
+    }
+
+    private static final class Comparison {
+        private final CompareFormats formats;
+        private final String rivalName;
+        private int selfLeads;
+        private int rivalLeads;
+
+        private Comparison(CompareFormats formats, String rivalName) {
+            this.formats = formats;
+            this.rivalName = rivalName;
         }
-        return String.format(Locale.US, "%.1f", kills / (double) deaths);
+
+        private String compare(long self, long rival, boolean lowerWins, LongFunction<String> diffFormatter) {
+            String template;
+            if (self == rival) {
+                template = formats.tie();
+            } else if (lowerWins ? self < rival : self > rival) {
+                selfLeads++;
+                template = formats.ahead();
+            } else {
+                rivalLeads++;
+                template = formats.behind();
+            }
+            return template
+                    .replace("{diff}", diffFormatter.apply(Math.abs(self - rival)))
+                    .replace("{rival_player}", rivalName);
+        }
+    }
+
+    private double kdRatio(int kills, int deaths) {
+        return deaths <= 0 ? kills : kills / (double) deaths;
+    }
+
+    private String formatRatio(int kills, int deaths) {
+        return String.format(Locale.US, "%.1f", kdRatio(kills, deaths));
     }
 
     private String formatDuration(long totalSeconds) {

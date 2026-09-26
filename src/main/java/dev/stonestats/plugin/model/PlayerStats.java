@@ -109,6 +109,18 @@ public class PlayerStats {
         return base + Math.max(0, sessionSeconds);
     }
 
+    /**
+     * Clears the stored total and, if the player is online, restarts the
+     * running session from now - otherwise the live value would still
+     * include everything played since the last login.
+     */
+    public void resetPlaytime() {
+        playtimeSeconds.set(0);
+        if (sessionStartMillis >= 0) {
+            sessionStartMillis = System.currentTimeMillis();
+        }
+    }
+
     public void startSession() {
         sessionStartMillis = System.currentTimeMillis();
     }

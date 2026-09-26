@@ -19,11 +19,27 @@ general:
   player-not-found: "&c✖ Spieler &f{player} &chat noch nie auf diesem Server gespielt."
   opening-others: "&7Öffne Statistiken von &f{player}&7..."
 
+rival:
+  usage: "&c✖ Verwendung: &f/stats rival <spieler>"
+  self: "&c✖ Du kannst deine Statistiken nicht mit dir selbst vergleichen."
+  not-online: "&c✖ &f{player} &cmuss online sein, um Statistiken zu vergleichen."
+  opening: "&7Vergleiche deine Statistiken mit &f{player}&7..."
+
+reset:
+  # {stats} = Liste der zurücksetzbaren Statistiken
+  usage: "&c✖ Verwendung: &f/stonestats reset <spieler> <statistik|all> &8- &7Statistiken: &f{stats}"
+  unknown-stat: "&c✖ Unbekannte Statistik &f{stat}&c. Gültig: &f{stats}&c oder &fall"
+  no-stats: "&c✖ &f{player} &chat noch keine gespeicherten Statistiken."
+  success: "&a✔ &f{stat} &avon &f{player} &awurde zurückgesetzt."
+  success-all: "&a✔ Alle Statistiken von &f{player} &awurden zurückgesetzt."
+
 help:
   header: "<gradient:#9AA5B1:#FFC24A><bold>▬▬▬▬▬ Stone Stats Hilfe ▬▬▬▬▬</bold></gradient>"
   stats: "&e/stats [spieler] &8» &7Öffne deine eigenen Statistiken oder die eines anderen Spielers"
+  rival: "&e/stats rival <spieler> &8» &7Vergleiche deine Statistiken mit einem anderen Spieler"
   reload: "&e/stonestats reload &8» &7Konfiguration und Nachrichten neu laden"
   checkupdate: "&e/stonestats checkupdate &8» &7Jetzt sofort auf Modrinth nach einem Update suchen"
+  reset: "&e/stonestats reset <spieler> <statistik|all> &8» &7Eine oder alle Statistiken eines Spielers zurücksetzen"
   help: "&e/stonestats help &8» &7Dieses Hilfemenü anzeigen"
 
 update:

@@ -9,12 +9,12 @@ softdepend: [PlaceholderAPI]
 
 commands:
   stats:
-    description: Open the Stone Stats GUI for yourself, or another player if permitted.
-    usage: /stats [player]
+    description: Open the Stone Stats GUI for yourself or another player, or compare your stats with a rival.
+    usage: /stats [player] | /stats rival <player>
     aliases: [mystats]
   stonestats:
-    description: Admin command for Stone Stats - reload the plugin, check for updates and view help.
-    usage: /stonestats <reload|help|checkupdate>
+    description: Admin command for Stone Stats - reload the plugin, check for updates, reset player stats and view help.
+    usage: /stonestats <reload|help|checkupdate|reset>
     aliases: [ss, sstats]
 
 permissions:
@@ -22,8 +22,16 @@ permissions:
     description: Allows opening your own stats GUI with /stats.
     default: true
   stonestats.others:
-    description: Allows viewing another player's stats GUI with /stats <player>.
+    description: Allows viewing another player's stats GUI with /stats <player> (online or offline), and comparing against offline players with /stats rival.
+    default: op
+  stonestats.rival:
+    description: Allows comparing your stats with an online player via /stats rival <player>.
+    default: true
+  stonestats.reset:
+    description: Allows resetting one or all stats of a player with /stonestats reset <player> <stat|all>.
     default: op
   stonestats.admin:
-    description: Access to all Stone Stats admin actions (reload, checkupdate).
+    description: Access to all Stone Stats admin actions (reload, checkupdate, reset).
     default: op
+    children:
+      stonestats.reset: true

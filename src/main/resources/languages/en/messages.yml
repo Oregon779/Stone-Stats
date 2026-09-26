@@ -20,11 +20,27 @@ general:
   player-not-found: "&c✖ Player &f{player} &chas never played on this server."
   opening-others: "&7Opening stats for &f{player}&7..."
 
+rival:
+  usage: "&c✖ Usage: &f/stats rival <player>"
+  self: "&c✖ You can't compare your stats with yourself."
+  not-online: "&c✖ &f{player} &cmust be online to compare stats."
+  opening: "&7Comparing your stats with &f{player}&7..."
+
+reset:
+  # {stats} = list of resettable stats
+  usage: "&c✖ Usage: &f/stonestats reset <player> <stat|all> &8- &7stats: &f{stats}"
+  unknown-stat: "&c✖ Unknown stat &f{stat}&c. Valid: &f{stats}&c or &fall"
+  no-stats: "&c✖ &f{player} &chas no recorded stats yet."
+  success: "&a✔ Reset &f{stat} &afor &f{player}&a."
+  success-all: "&a✔ Reset all stats for &f{player}&a."
+
 help:
   header: "<gradient:#9AA5B1:#FFC24A><bold>▬▬▬▬▬ Stone Stats Help ▬▬▬▬▬</bold></gradient>"
   stats: "&e/stats [player] &8» &7Open your own stats, or another player's"
+  rival: "&e/stats rival <player> &8» &7Compare your stats with another player"
   reload: "&e/stonestats reload &8» &7Reload the configuration and messages"
   checkupdate: "&e/stonestats checkupdate &8» &7Check Modrinth for a new version right now"
+  reset: "&e/stonestats reset <player> <stat|all> &8» &7Reset one or all stats of a player"
   help: "&e/stonestats help &8» &7Show this help menu"
 
 update:

@@ -10,7 +10,7 @@
 #
 # General command feedback (help, reload, errors, ...) is translated
 # per-language instead, in:
-#   plugins/Stone Stats/languages/<language>/messages.yml
+#   plugins/StoneStats/languages/<language>/messages.yml
 #
 # Text styling: headers/labels below use Unicode "small caps" characters
 # (e.g. ᴘʟᴀʏᴛɪᴍᴇ) combined with MiniMessage <gradient:#hex:#hex>...</gradient>
@@ -27,6 +27,7 @@
 # Available placeholders (usable in every gui item name/lore below):
 #   {player}              - name of the player whose stats are shown
 #   {player_sc}            - the above, converted to small caps
+#   {uuid}                 - that player's UUID
 #   {stat_kills}           - player kills
 #   {stat_deaths}          - deaths
 #   {stat_kd}               - kill/death ratio (1 decimal place)
@@ -116,8 +117,8 @@ gui:
     slots: {}
 
   # Every entry becomes one item in the GUI (slot is 0-indexed, 0-35 for
-  # a 4-row GUI). Add a new stat by adding a new entry here plus a
-  # placeholder in PlaceholderManager - nothing else needs to change.
+  # a 4-row GUI). Add, move or remove entries freely - every placeholder
+  # listed at the top of this file works in every item.
   items:
     profile:
       slot: 4

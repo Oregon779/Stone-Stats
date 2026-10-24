@@ -2,6 +2,7 @@ package dev.stonestats.plugin.manager;
 
 import dev.stonestats.plugin.StoneStats;
 import dev.stonestats.plugin.model.PlayerStats;
+import dev.stonestats.plugin.util.SafeFiles;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -9,13 +10,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -201,7 +197,7 @@ public class StatsManager {
         synchronized (saveLock) {
             String content = serialize();
             try {
-                writeAtomically(file.toPath(), content);
+                SafeFiles.writeAtomically(file.toPath(), content);
                 return true;
             } catch (IOException ex) {
                 plugin.getLogger().warning("Could not save " + FILE_NAME + ": " + ex.getMessage());
@@ -241,23 +237,5 @@ public class StatsManager {
 
     private static void appendValue(StringBuilder sb, String key, long value) {
         sb.append("    ").append(key).append(": ").append(value).append('\n');
-    }
-
-    /**
-     * Write to a temp file, flush it to disk, then rename over the real file:
-     * a crash mid-write leaves the previous stats.yml intact instead of a
-     * truncated one.
-     */
-    private static void writeAtomically(Path target, String content) throws IOException {
-        Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
-        try (FileOutputStream out = new FileOutputStream(tmp.toFile())) {
-            out.write(content.getBytes(StandardCharsets.UTF_8));
-            out.getFD().sync();
-        }
-        try {
-            Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException ex) {
-            Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
-        }
     }
 }

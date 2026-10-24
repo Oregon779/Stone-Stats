@@ -17,4 +17,13 @@ Bei jedem Build beide Stellen identisch halten:
 
 Nur beim Release zusätzlich: `WIKI.md` → Zeile `**Version:** …` auf die neue Hauptversion setzen.
 
-Aktuelle Hauptversion: `1.0.0`. Der nächste Build ist `1.0.0-dev1`.
+Aktuelle Hauptversion: `1.0.0`. Letzter Build: `1.0.0-dev1`.
+
+# REGELN FÜR NEUE CONFIG-OPTIONEN
+
+`config.yml` und `messages.yml` werden beim Start von `ConfigUpdater` automatisch aktualisiert (aufgerufen in `ConfigManager.load()` bzw. `MessageManager.loadLanguage()`, vor dem Einlesen der Werte).
+
+- **Neue Option:** nur in `src/main/resources/config.yml` (bzw. `messages.yml`) eintragen, mit erklärendem Kommentar direkt darüber. Keine Migration nötig – sie wird samt Kommentar in bestehende Dateien eingefügt.
+- **Option umbenennen, verschieben oder entfernen:** `config-version` in `src/main/resources/config.yml` um 1 erhöhen und in `ConfigManager.MIGRATIONS` einen Schritt ergänzen (`ConfigMigration.rename(neueVersion, alt, neu)` bzw. `ConfigMigration.remove(neueVersion, pfad)`). Eine Version nie wiederverwenden.
+- **Neue Item-Listen, die der Admin frei bearbeitet** (wie `gui.items`): Pfad in `ConfigManager.USER_OWNED_SECTIONS` eintragen, sonst kommen gelöschte Einträge zurück.
+- Jede Änderung an diesem Verhalten mit `ConfigUpdaterTest` absichern.

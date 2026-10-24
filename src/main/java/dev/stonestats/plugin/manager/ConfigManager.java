@@ -1,6 +1,7 @@
 package dev.stonestats.plugin.manager;
 
 import dev.stonestats.plugin.StoneStats;
+import dev.stonestats.plugin.config.ConfigMigration;
 import dev.stonestats.plugin.config.ConfigUpdater;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -18,6 +19,12 @@ public class ConfigManager {
     private static final String DEFAULT_DATE_FORMAT = "dd.MM.yyyy HH:mm";
     // Item lists are the admin's: deleted entries must stay deleted.
     private static final Set<String> USER_OWNED_SECTIONS = Set.of("gui.items", "gui.equipment.slots", "rival-gui.items");
+
+    // Only for options that are renamed, moved or removed: bump config-version in
+    // the bundled config.yml and add a step here, e.g.
+    //   ConfigMigration.rename(2, "gui.open-cooldown-ms", "gui.cooldown.open-ms")
+    // New options need nothing - they're added from config.yml automatically.
+    private static final List<ConfigMigration> MIGRATIONS = List.of();
 
     private final StoneStats plugin;
     private File configFile;
@@ -53,10 +60,20 @@ public class ConfigManager {
             plugin.saveResource(RESOURCE_PATH, false);
         }
 
+        // Must run before the values are read below.
         try {
-            ConfigUpdater.UpdateResult result = ConfigUpdater.update(plugin, RESOURCE_PATH, configFile, USER_OWNED_SECTIONS);
+            ConfigUpdater.UpdateResult result = ConfigUpdater.update(plugin, RESOURCE_PATH, configFile, USER_OWNED_SECTIONS, MIGRATIONS);
+            if (result.migratedFrom() > 0) {
+                plugin.getLogger().info("Migrated config.yml from config-version " + result.migratedFrom() + ".");
+            }
             if (result.addedKeys() > 0) {
-                plugin.getLogger().info("Added " + result.addedKeys() + " new option(s) to config.yml");
+                plugin.getLogger().info("Added " + result.addedKeys() + " new option(s) to config.yml.");
+            }
+            if (result.reformatted()) {
+                plugin.getLogger().info("config.yml was re-saved as a whole: your values and comments are kept, its formatting was normalized.");
+            }
+            if (result.changed()) {
+                plugin.getLogger().info("The previous config.yml was saved as config.yml.bak.");
             }
         } catch (IOException ex) {
             plugin.getLogger().warning("Failed to update config.yml: " + ex.getMessage());

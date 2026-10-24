@@ -35,6 +35,24 @@ class ConfigTest extends PluginTestBase {
     }
 
     @Test
+    void outdatedConfigIsUpdatedBeforeItsValuesAreRead() throws Exception {
+        File config = dataFile("config.yml");
+        String current = Files.readString(config.toPath());
+        // An older config: no playtime toggle yet, admin turned kill tracking off.
+        String old = current.replace("  playtime: true\n", "").replace("  kills: true\n", "  kills: false   # no PvP here\n");
+        Files.writeString(config.toPath(), old);
+
+        plugin.reload();
+
+        String updated = Files.readString(config.toPath());
+        assertTrue(updated.contains("  kills: false   # no PvP here\n"), "admin's line kept verbatim");
+        assertTrue(updated.contains("  playtime: true\n"), "new option added");
+        assertFalse(plugin.getConfigManager().isTrackKills());
+        assertTrue(plugin.getConfigManager().isTrackPlaytime());
+        assertEquals(old, Files.readString(dataFile("config.yml.bak").toPath()));
+    }
+
+    @Test
     void brokenConfigIsLeftUntouchedAndDefaultsKeepTheGuiWorking() throws Exception {
         File config = dataFile("config.yml");
         String broken = "language: en\ngui:\n  title: [broken\n";

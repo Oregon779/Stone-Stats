@@ -46,7 +46,13 @@
 # Missing options are added automatically on plugin updates. Existing
 # values you changed are never overwritten, even in nested sections.
 # GUI items you delete (gui.items, rival-gui.items) stay deleted.
+# Before the plugin changes this file, the previous version is saved as
+# config.yml.bak.
 # =====================================================================
+
+# Layout version of this file, used to migrate renamed or removed options
+# on plugin updates. Don't change it.
+config-version: 1
 
 language: en
 

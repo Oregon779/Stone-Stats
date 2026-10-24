@@ -62,7 +62,14 @@ Stone Stats is a Paper plugin that shows every player's statistics in a fast, fu
 
 **Update**
 
-Stop the server, replace the jar, start the server. On startup Stone Stats adds options that are new in the update to your `config.yml` and `messages.yml`. It never overwrites values you changed, and GUI items you deleted stay deleted. The console tells you how many options were added.
+Stop the server, replace the jar, start the server. Your `config.yml` and `messages.yml` are updated automatically before they are read:
+
+- **New options are added** with their default value and their explanatory comment, at the place where they belong.
+- **Your settings stay as they are** – no value you changed is reset, and GUI items you deleted stay deleted.
+- **Your file keeps its formatting.** Only the new lines are inserted; your own comments, quotes and blank lines are untouched. (Only in the rare case that the new options can't be inserted that way, the file is saved as a whole – values and comments are still kept.)
+- **Renamed or removed options are migrated.** `config-version` at the top of `config.yml` tells Stone Stats which layout your file has; don't change it.
+- **The previous file is kept** as `config.yml.bak` (or `messages.yml.bak`) whenever something was changed. The console lists what was done.
+- If your file has a YAML error or comes from a *newer* plugin version, it is not touched.
 
 **Reloading:** after editing `config.yml` or a `messages.yml`, run `/stonestats reload`. A full server restart is not needed. The server's own `/reload` also works (stats are saved and open GUIs are closed first), but a proper restart is always the safer choice.
 
@@ -184,6 +191,7 @@ Everything lives in `plugins/StoneStats/config.yml`. Apply changes with `/stones
 ### General
 
 ```yaml
+config-version: 1                # managed by the plugin - don't change it
 language: en                     # en or de (or your own language, see "Languages")
 date-format: "dd.MM.yyyy HH:mm"  # how first join / last login are shown
 autosave-interval-minutes: 5     # how often stats are saved in the background
@@ -360,7 +368,8 @@ update-checker:
 | Invalid material | Replaced by a safe default, warning in console. |
 | Unknown sound | That sound is turned off, warning in console. |
 | Invalid `date-format` | Default format is used, warning in console. |
-| Option missing | It is added to your file with its default value on the next startup or `/stonestats reload`. |
+| Option missing | It is added to your file with its default value and comment on the next startup or `/stonestats reload`; the old file is kept as `config.yml.bak`. |
+| `config-version` higher than the plugin knows (after a downgrade) | The file is not changed; a warning is printed. |
 | Deleted a GUI item | It stays deleted. Deleting a *whole* `items` section brings the default items back. |
 
 ## Placeholders

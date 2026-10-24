@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.LongFunction;
@@ -29,41 +30,51 @@ public class PlaceholderManager {
         this.plugin = plugin;
     }
 
+    /** Every stat placeholder; {stat_<key>} in GUIs, %stonestats_<key>% through PlaceholderAPI. */
+    public static final List<String> STAT_KEYS = List.of(
+            "kills", "deaths", "kd", "mob_kills", "blocks_broken", "blocks_placed",
+            "playtime", "playtime_hours", "playtime_seconds", "first_join", "last_join",
+            "level", "xp_bar", "xp_percent");
+
     public Map<String, String> buildStatPlaceholders(OfflinePlayer target, PlayerStats stats) {
         Map<String, String> placeholders = new HashMap<>();
 
         placeholders.put("player", target.getName() != null ? target.getName() : "Unknown");
         placeholders.put("player_sc", TextUtil.toSmallCaps(target.getName() != null ? target.getName() : "Unknown"));
         placeholders.put("uuid", target.getUniqueId().toString());
+        for (String key : STAT_KEYS) {
+            placeholders.put("stat_" + key, statValue(target, stats, key));
+        }
+        return placeholders;
+    }
 
+    /**
+     * One formatted stat value, or {@code null} for an unknown key. Safe to call
+     * off the main thread (PlaceholderAPI may): counters are atomic and nothing
+     * here touches the world.
+     */
+    public String statValue(OfflinePlayer target, PlayerStats stats, String key) {
         // Disabled stats (track.* false) render "-", as config.yml documents.
         ConfigManager cfg = plugin.getConfigManager();
-        int kills = stats.getKills();
-        int deaths = stats.getDeaths();
-        placeholders.put("stat_kills", cfg.isTrackKills() ? String.valueOf(kills) : UNTRACKED);
-        placeholders.put("stat_deaths", cfg.isTrackDeaths() ? String.valueOf(deaths) : UNTRACKED);
-        placeholders.put("stat_kd", cfg.isTrackKills() && cfg.isTrackDeaths() ? formatRatio(kills, deaths) : UNTRACKED);
-        placeholders.put("stat_mob_kills", cfg.isTrackMobKills() ? String.valueOf(stats.getMobKills()) : UNTRACKED);
-        placeholders.put("stat_blocks_broken", cfg.isTrackBlocksBroken() ? String.valueOf(stats.getBlocksBroken()) : UNTRACKED);
-        placeholders.put("stat_blocks_placed", cfg.isTrackBlocksPlaced() ? String.valueOf(stats.getBlocksPlaced()) : UNTRACKED);
-        placeholders.put("stat_playtime", cfg.isTrackPlaytime() ? formatDuration(stats.getLivePlaytimeSeconds()) : UNTRACKED);
-        placeholders.put("stat_first_join", formatDate(stats.getFirstJoinMillis()));
-        placeholders.put("stat_last_join", formatDate(stats.getLastJoinMillis()));
-
-        // Level and XP need a live Player object (they aren't part of the
-        // persisted stats) - only available while the target is online.
-        if (target.isOnline() && target.getPlayer() instanceof Player online) {
-            placeholders.put("stat_level", String.valueOf(online.getLevel()));
-            double xpRatio = online.getExp();
-            placeholders.put("stat_xp_bar", TextUtil.progressBar(xpRatio, 10, '█', '░'));
-            placeholders.put("stat_xp_percent", TextUtil.formatPercent(xpRatio));
-        } else {
-            placeholders.put("stat_level", "-");
-            placeholders.put("stat_xp_bar", TextUtil.progressBar(0, 10, '█', '░'));
-            placeholders.put("stat_xp_percent", "0");
-        }
-
-        return placeholders;
+        return switch (key) {
+            case "kills" -> cfg.isTrackKills() ? String.valueOf(stats.getKills()) : UNTRACKED;
+            case "deaths" -> cfg.isTrackDeaths() ? String.valueOf(stats.getDeaths()) : UNTRACKED;
+            case "kd" -> cfg.isTrackKills() && cfg.isTrackDeaths() ? formatRatio(stats.getKills(), stats.getDeaths()) : UNTRACKED;
+            case "mob_kills" -> cfg.isTrackMobKills() ? String.valueOf(stats.getMobKills()) : UNTRACKED;
+            case "blocks_broken" -> cfg.isTrackBlocksBroken() ? String.valueOf(stats.getBlocksBroken()) : UNTRACKED;
+            case "blocks_placed" -> cfg.isTrackBlocksPlaced() ? String.valueOf(stats.getBlocksPlaced()) : UNTRACKED;
+            case "playtime" -> cfg.isTrackPlaytime() ? formatDuration(stats.getLivePlaytimeSeconds()) : UNTRACKED;
+            case "playtime_hours" -> cfg.isTrackPlaytime() ? String.valueOf(stats.getLivePlaytimeSeconds() / 3600) : UNTRACKED;
+            case "playtime_seconds" -> cfg.isTrackPlaytime() ? String.valueOf(stats.getLivePlaytimeSeconds()) : UNTRACKED;
+            case "first_join" -> formatDate(stats.getFirstJoinMillis());
+            case "last_join" -> formatDate(stats.getLastJoinMillis());
+            // Level and XP need a live Player object (they aren't part of the
+            // persisted stats) - only available while the target is online.
+            case "level" -> target.getPlayer() instanceof Player online ? String.valueOf(online.getLevel()) : "-";
+            case "xp_bar" -> TextUtil.progressBar(target.getPlayer() instanceof Player online ? online.getExp() : 0, 10, '█', '░');
+            case "xp_percent" -> target.getPlayer() instanceof Player online ? TextUtil.formatPercent(online.getExp()) : "0";
+            default -> null;
+        };
     }
 
     /** Precompiled rival-gui.compare texts; {diff} and {rival_player} are filled in per render. */

@@ -68,7 +68,7 @@ public class StatsListener implements Listener {
         // Drop the /stats open-cooldown entry for this player - otherwise
         // it would sit in memory forever for anyone who ever ran /stats,
         // however negligible that footprint is.
-        plugin.getGuiManager().clearCooldown(player.getUniqueId());
+        plugin.getGuiManager().forget(player.getUniqueId());
     }
 
     // ignoreCancelled: Paper lets plugins cancel deaths (revive/duel plugins) -

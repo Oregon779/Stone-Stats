@@ -1,5 +1,6 @@
 package dev.stonestats.plugin;
 
+import dev.stonestats.plugin.command.CommandClaimer;
 import dev.stonestats.plugin.command.StatsCommand;
 import dev.stonestats.plugin.command.StoneStatsCommand;
 import dev.stonestats.plugin.listener.GuiListener;
@@ -29,9 +30,13 @@ public class StoneStats extends JavaPlugin {
     private StatsManager statsManager;
     private PlaceholderManager placeholderManager;
     private PlaceholderApiHook placeholderApiHook;
+    // StoneStatsExpansion when PlaceholderAPI is installed; Object so this class
+    // never needs PlaceholderAPI on the classpath.
+    private Object placeholderExpansion;
     private EquipmentManager equipmentManager;
     private GuiManager guiManager;
     private UpdateChecker updateChecker;
+    private CommandClaimer commandClaimer;
 
     @Override
     public void onEnable() {
@@ -56,6 +61,10 @@ public class StoneStats extends JavaPlugin {
 
         placeholderManager = new PlaceholderManager(this);
         equipmentManager = new EquipmentManager(this);
+        placeholderExpansion = placeholderApiHook.registerExpansion(this);
+        if (placeholderExpansion != null) {
+            getLogger().info("Registered %stonestats_...% placeholders for PlaceholderAPI.");
+        }
 
         getLogger().info("Building stats GUI layout...");
         guiManager = new GuiManager(this);
@@ -83,6 +92,8 @@ public class StoneStats extends JavaPlugin {
         if (updateChecker != null) {
             updateChecker.stop();
         }
+        PlaceholderApiHook.unregisterExpansion(placeholderExpansion);
+        placeholderExpansion = null;
         // Saving comes first: nothing below may be able to cost stats.
         if (statsManager != null) {
             statsManager.stopAutoSave();
@@ -109,6 +120,7 @@ public class StoneStats extends JavaPlugin {
         syncPlaytimeSessions();
         statsManager.startAutoSave();
         updateChecker.start();
+        commandClaimer.claim();
     }
 
     /** Makes the running sessions of online players match track.playtime. */
@@ -135,10 +147,12 @@ public class StoneStats extends JavaPlugin {
     }
 
     private void registerListeners() {
+        commandClaimer = new CommandClaimer(this);
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents((Listener) new StatsListener(this), (Plugin) this);
         pm.registerEvents((Listener) new GuiListener(this), (Plugin) this);
         pm.registerEvents((Listener) updateChecker, (Plugin) this);
+        pm.registerEvents(commandClaimer, this);
     }
 
     public ConfigManager getConfigManager() {
@@ -167,6 +181,10 @@ public class StoneStats extends JavaPlugin {
 
     public GuiManager getGuiManager() {
         return guiManager;
+    }
+
+    public CommandClaimer getCommandClaimer() {
+        return commandClaimer;
     }
 
     public UpdateChecker getUpdateChecker() {

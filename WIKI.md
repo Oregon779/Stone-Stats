@@ -28,11 +28,11 @@ Stone Stats is a Paper plugin that shows every player's statistics in a fast, fu
 ## Features
 
 - **Stats GUI** – `/stats` opens your own stats, `/stats <player>` another player's (online or offline, with permission).
-- **Rival comparison** – `/stats rival <player>` compares your stats side by side with another player's and shows who leads in each stat.
+- **Rival comparison** – `/stats rival <player>` compares your stats side by side with another player's, revealed step by step with sounds, and shows who leads in each stat.
 - **Stat resets** – admins reset a single stat or all stats of any player, online or offline.
 - **Fully configurable GUIs** – size, every item, slot, material, name, lore, sounds and filler are set in `config.yml`.
 - **Rich text** – `&` color codes, `&#RRGGBB` hex colors and MiniMessage (gradients, …) work everywhere, even mixed.
-- **PlaceholderAPI support** (optional) – use any `%placeholder%` in GUI texts and messages.
+- **PlaceholderAPI support** (optional) – use any `%placeholder%` in GUI texts and messages, and show Stone Stats values anywhere with `%stonestats_…%`.
 - **English and German** included, more languages can be added.
 - **Automatic config updates** – new options are added on plugin updates without touching your changes.
 - **Update checker** – checks Modrinth and tells admins when a new version is out.
@@ -88,6 +88,7 @@ Stop the server, replace the jar, start the server. Your `config.yml` and `messa
 Good to know:
 
 - `/stats` can only be used by players, not from the console. `/stonestats` works from the console.
+- **Command conflicts:** if another plugin registered `/stats`, `/stonestats` or one of their aliases too, Stone Stats takes the name over once all plugins are loaded and says so in the console. Turn this off with `commands.override-conflicts: false`; Stone Stats then still works as `/stonestats:stats`.
 - Opening a GUI again within `gui.open-cooldown-ms` (default 500 ms) is ignored. This stops macros and command spam.
 - Looking up an offline player happens in the background, so it never freezes the server even if the name first has to be resolved with Mojang.
 - Player names must be real Minecraft names: 1–16 characters, letters, digits and `_`. The characters `.` `*` `-` are also accepted for Bedrock players (Geyser/Floodgate prefixes). Anything else is answered with "has never played on this server".
@@ -147,6 +148,8 @@ Examples with [LuckPerms](https://luckperms.net/):
 
 - **Row 1:** your head – "VS" – their head. Each head shows in how many of the 7 compared stats that player leads.
 - **Row 2:** one item each for kills, deaths, K/D, mob kills, playtime, blocks broken and blocks placed – both values plus a verdict line, e.g. `▲ you lead by 12`, `▼ Alex leads by 5` or `● tied`.
+
+**Animation:** the stats are revealed one after another with a rising sound. Then the result follows: the lead counts on both heads, a glint on the leader's head and a win, lose or tie sound. Closing the GUI stops the animation; it can be configured or turned off under `rival-gui.animation`.
 
 Rules:
 
@@ -344,8 +347,34 @@ rival-gui:
 ```
 
 - In the `compare` texts, `{diff}` is the gap between both values and `{rival_player}` the other player's name.
+
+**Animation** (`rival-gui.animation`):
+
+```yaml
+  animation:
+    enabled: true
+    interval-ticks: 5               # pause between two revealed stats (20 = 1 s)
+    hidden-item: BLACK_STAINED_GLASS_PANE
+    hidden-name: "&8?"
+    reveal-sound: { enabled: true, sound: BLOCK_NOTE_BLOCK_PLING, volume: 0.8, pitch: 0.8, pitch-step: 0.12 }
+    win-sound:  { enabled: true, sound: UI_TOAST_CHALLENGE_COMPLETE, volume: 0.7, pitch: 1.0 }
+    lose-sound: { enabled: true, sound: ENTITY_VILLAGER_NO, volume: 0.8, pitch: 1.0 }
+    tie-sound:  { enabled: true, sound: BLOCK_NOTE_BLOCK_BELL, volume: 0.8, pitch: 1.0 }
+    highlight-leader: true          # the leader's head glows at the end
+```
+
+Which items appear when is derived from their texts: items with a `{compare_<stat>}` line are revealed one by one (in slot order), items showing `{compare_self_leads}` or `{compare_rival_leads}` come last (they contain the result), everything else is shown right away. Set `reveal: instant`, `step` or `final` on an item to choose yourself.
 - `skull-owner` accepts `self` (the player who ran the command) and `rival` (the other player).
 - All placeholders for this GUI are listed under [Placeholders → Rival GUI](#rival-gui-placeholders).
+
+### Commands
+
+```yaml
+commands:
+  override-conflicts: true
+```
+
+Takes over `/stats`, `/stonestats` and their aliases from other plugins that registered the same names (see [Commands](#commands)).
 
 ### Update checker
 
@@ -388,6 +417,8 @@ Placeholders in `{curly braces}` are Stone Stats' own. They work in the GUI titl
 | `{stat_kd}` | K/D ratio, 1 decimal place |
 | `{stat_mob_kills}` | Mob kills |
 | `{stat_playtime}` | Total playtime, e.g. `4d 6h 12m` |
+| `{stat_playtime_hours}` | Total playtime in full hours |
+| `{stat_playtime_seconds}` | Total playtime in seconds |
 | `{stat_blocks_broken}` | Blocks broken |
 | `{stat_blocks_placed}` | Blocks placed |
 | `{stat_first_join}` | Date/time of the first join (format: `date-format`) |
@@ -424,7 +455,20 @@ If PlaceholderAPI is installed, any `%placeholder%` works as well – mixed free
 - In the stats GUI they are filled in for the **player whose stats are shown**. For offline players many PlaceholderAPI placeholders have no value.
 - In the rival GUI and in chat messages they are filled in for the **player who ran the command**.
 - Many placeholders need their expansion first, e.g. `/papi ecloud download Player` and then `/papi reload`.
-- Stone Stats does **not** provide its own `%stonestats_…%` placeholders for other plugins.
+
+### Stone Stats placeholders for other plugins
+
+With PlaceholderAPI installed, Stone Stats registers its own placeholders, e.g. for scoreboards, tab lists, holograms or chat plugins. Every `{stat_x}` from the table above exists as:
+
+| Placeholder | Value |
+|---|---|
+| `%stonestats_<stat>%` | for the player the placeholder is shown to, e.g. `%stonestats_kills%`, `%stonestats_playtime%` |
+| `%stonestats_<stat>_<player>%` | for any player by name, e.g. `%stonestats_kills_Steve%`, `%stonestats_mob_kills_Alex%` |
+
+Possible `<stat>` values: `kills`, `deaths`, `kd`, `mob_kills`, `blocks_broken`, `blocks_placed`, `playtime`, `playtime_hours`, `playtime_seconds`, `first_join`, `last_join`, `level`, `xp_bar`, `xp_percent`.
+
+- Stats turned off under `track` show `-`. An unknown player name shows nothing.
+- Other players are found if they are online or the server knows their name from an earlier join. These placeholders never cause a lookup at Mojang, so they are safe even in scoreboards that update every tick.
 
 ## Text Formatting
 
@@ -530,8 +574,11 @@ Run `/stonestats reload` and check the console. Invalid slots, materials and sou
 **PlaceholderAPI placeholders show up as raw `%text%`.**
 Install PlaceholderAPI, download the matching expansion (`/papi ecloud download <name>`) and run `/papi reload`. For offline players many placeholders simply have no value.
 
-**Can other plugins use Stone Stats' stats as `%stonestats_...%` placeholders?**
-No, Stone Stats doesn't register its own PlaceholderAPI expansion.
+**Can other plugins use Stone Stats' stats?**
+Yes, with PlaceholderAPI installed: `%stonestats_kills%`, `%stonestats_playtime_Steve%` and so on – see [Placeholders](#stone-stats-placeholders-for-other-plugins).
+
+**Another plugin also has a `/stats` command.**
+Stone Stats takes the name over after startup and prints a console message. Set `commands.override-conflicts: false` to keep the other plugin's command; Stone Stats then answers to `/stonestats:stats`.
 
 **A kill wasn't counted.**
 Kills only count if a player damaged the victim shortly before its death. Killing yourself counts as a death only, and deaths cancelled by other plugins don't count at all.

@@ -48,6 +48,7 @@ public class ConfigManager {
     private boolean trackPlaytime;
     private long guiOpenCooldownMillis;
     private int guiRows;
+    private boolean overrideCommandConflicts;
     private String dateFormat = DEFAULT_DATE_FORMAT;
 
     public ConfigManager(StoneStats plugin) {
@@ -101,6 +102,7 @@ public class ConfigManager {
         trackPlaytime = config.getBoolean("track.playtime", true);
         guiOpenCooldownMillis = Math.max(0, config.getInt("gui.open-cooldown-ms", 500));
         guiRows = Math.max(1, Math.min(6, config.getInt("gui.rows", 6)));
+        overrideCommandConflicts = config.getBoolean("commands.override-conflicts", true);
     }
 
     public void reload() {
@@ -174,6 +176,10 @@ public class ConfigManager {
 
     public int getGuiRows() {
         return guiRows;
+    }
+
+    public boolean isOverrideCommandConflicts() {
+        return overrideCommandConflicts;
     }
 
     public int getAutoSaveIntervalMinutes() {

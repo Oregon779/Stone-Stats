@@ -1,5 +1,6 @@
 package dev.stonestats.plugin.manager;
 
+import dev.stonestats.plugin.StoneStats;
 import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -36,5 +37,24 @@ public class PlaceholderApiHook {
             return text;
         }
         return PlaceholderAPI.setPlaceholders(target, text);
+    }
+
+    /**
+     * Registers the %stonestats_...% placeholders. Returns an opaque handle for
+     * {@link #unregisterExpansion(Object)}, or null - typed as Object so callers
+     * never load the PlaceholderAPI classes when the plugin is missing.
+     */
+    public Object registerExpansion(StoneStats plugin) {
+        if (!available) {
+            return null;
+        }
+        StoneStatsExpansion expansion = new StoneStatsExpansion(plugin);
+        return expansion.register() ? expansion : null;
+    }
+
+    public static void unregisterExpansion(Object handle) {
+        if (handle != null) {
+            ((StoneStatsExpansion) handle).unregister();
+        }
     }
 }

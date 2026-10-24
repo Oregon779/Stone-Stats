@@ -33,6 +33,8 @@
 #   {stat_kd}               - kill/death ratio (1 decimal place)
 #   {stat_mob_kills}        - mobs killed
 #   {stat_playtime}         - total playtime, formatted (e.g. "4d 6h 12m")
+#   {stat_playtime_hours}   - total playtime in full hours (e.g. "102")
+#   {stat_playtime_seconds} - total playtime in seconds
 #   {stat_blocks_broken}    - blocks mined
 #   {stat_blocks_placed}    - blocks placed
 #   {stat_first_join}       - date/time of this player's first ever join
@@ -41,6 +43,10 @@
 #   {stat_xp_bar}           - progress bar of XP to next level, e.g. "██████░░░░"
 #   {stat_xp_percent}       - the above, as a plain number (0-100)
 #   %any_placeholderapi_placeholder% - works too, if PlaceholderAPI is installed
+#
+# With PlaceholderAPI, every {stat_x} above is also available to other
+# plugins (scoreboards, tab lists, holograms) as %stonestats_x%, e.g.
+# %stonestats_kills%, or for another player %stonestats_kills_Steve%.
 # ---------------------------------------------------------------------
 #
 # Missing options are added automatically on plugin updates. Existing
@@ -248,6 +254,43 @@ rival-gui:
   filler-item: GRAY_STAINED_GLASS_PANE
   filler-name: " "
 
+  # Reveal the comparison step by step instead of all at once: every stat
+  # with a {compare_x} line appears one after another, then the items
+  # showing {compare_self_leads}/{compare_rival_leads} reveal the result.
+  # Give an item "reveal: instant", "step" or "final" to choose yourself.
+  animation:
+    enabled: true
+    # Ticks between two revealed stats (20 ticks = 1 second).
+    interval-ticks: 5
+    # Shown in a stat's slot until it is revealed.
+    hidden-item: BLACK_STAINED_GLASS_PANE
+    hidden-name: "&8?"
+    # Played for every revealed stat; the pitch rises by pitch-step each time.
+    reveal-sound:
+      enabled: true
+      sound: BLOCK_NOTE_BLOCK_PLING
+      volume: 0.8
+      pitch: 0.8
+      pitch-step: 0.12
+    # Played at the end, depending on who leads in more stats.
+    win-sound:
+      enabled: true
+      sound: UI_TOAST_CHALLENGE_COMPLETE
+      volume: 0.7
+      pitch: 1.0
+    lose-sound:
+      enabled: true
+      sound: ENTITY_VILLAGER_NO
+      volume: 0.8
+      pitch: 1.0
+    tie-sound:
+      enabled: true
+      sound: BLOCK_NOTE_BLOCK_BELL
+      volume: 0.8
+      pitch: 1.0
+    # Make the leading player's head glow once the result is revealed.
+    highlight-leader: true
+
   # {diff} = gap between both values, {rival_player} = the rival's name
   compare:
     ahead: "&a▲ &7ʏᴏᴜ ʟᴇᴀᴅ ʙʏ &a&l{diff}"
@@ -350,6 +393,13 @@ rival-gui:
         - "&8▪ &7{rival_player}: &f&l{rival_stat_blocks_placed}"
         - " "
         - "{compare_blocks_placed}"
+
+# If another plugin registered /stats, /stonestats or one of their aliases
+# too, Stone Stats takes the name over once all plugins are loaded (the
+# console says from whom). Set to false to let the other plugin keep it -
+# Stone Stats then still works as /stonestats:stats.
+commands:
+  override-conflicts: true
 
 # Checks https://modrinth.com/project/stone-stats for a newer plugin
 # version. Console feedback is always printed once right on startup. If

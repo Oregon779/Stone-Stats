@@ -16,6 +16,7 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,8 +47,22 @@ public class GuiManager {
     /** Whose head a PLAYER_HEAD item shows: the GUI's main player, the rival (rival GUI only), or nobody. */
     private enum SkullOwner { NONE, PRIMARY, RIVAL }
 
+    /** When an item appears in the animated rival GUI. */
+    private enum Reveal { INSTANT, STEP, FINAL }
+
     /** Parsed-once stat item: slot/material plus precompiled text lines. */
-    private record CompiledStatItem(int slot, Material material, Line name, List<Line> lore, SkullOwner skullOwner) {
+    private record CompiledStatItem(int slot, Material material, Line name, List<Line> lore, SkullOwner skullOwner,
+                                    Reveal reveal) {
+    }
+
+    /** An already rendered item waiting for its turn in the reveal. */
+    private record PendingItem(int slot, ItemStack item) {
+    }
+
+    /** rival-gui.animation, parsed once. */
+    private record RivalAnimation(boolean enabled, long intervalTicks, ItemStack hidden, SoundSetting revealSound,
+                                  float pitchStep, SoundSetting winSound, SoundSetting loseSound, SoundSetting tieSound,
+                                  boolean highlightLeader) {
     }
 
     /**
@@ -83,6 +98,9 @@ public class GuiManager {
     private List<EquipmentSlotDef> equipmentSlots = new ArrayList<>();
     private final Map<String, SoundSetting> soundSettings = new HashMap<>();
     private ItemStack offlineGearTemplate;
+    private RivalAnimation rivalAnimation;
+    // One running reveal per viewer; replaced when they open another GUI.
+    private final Map<UUID, BukkitTask> animations = new ConcurrentHashMap<>();
 
     // Per-player last-open timestamp, used to throttle /stats spam. Sized
     // by unique players who have ever opened the GUI (like PlayerStats),
@@ -127,6 +145,30 @@ public class GuiManager {
         soundSettings.put("click", parseSoundSetting(cfg, "gui.sounds.click."));
 
         equipmentSlots = parseEquipmentSlots(cfg, mainLayout.size());
+
+        String anim = "rival-gui.animation.";
+        rivalAnimation = new RivalAnimation(
+                cfg.getBoolean(anim + "enabled", true),
+                Math.max(1, cfg.getInt(anim + "interval-ticks", 5)),
+                plainItem(parseMaterial(cfg.getString(anim + "hidden-item", "BLACK_STAINED_GLASS_PANE"), Material.BLACK_STAINED_GLASS_PANE),
+                        cfg.getString(anim + "hidden-name", "&8?"), mm),
+                parseSoundSetting(cfg, anim + "reveal-sound."),
+                (float) cfg.getDouble(anim + "reveal-sound.pitch-step", 0.12),
+                parseSoundSetting(cfg, anim + "win-sound."),
+                parseSoundSetting(cfg, anim + "lose-sound."),
+                parseSoundSetting(cfg, anim + "tie-sound."),
+                cfg.getBoolean(anim + "highlight-leader", true));
+    }
+
+    private ItemStack plainItem(Material material, String name, MessageManager mm) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.displayName(mm.format(name, null));
+            meta.addItemFlags(ItemFlag.values());
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 
     private Layout parseLayout(ConfigManager cfg, MessageManager mm, String base, int rows, String defaultTitle) {
@@ -135,13 +177,7 @@ public class GuiManager {
         String titleTemplate = mm.precompile(cfg.getString(base + ".title", defaultTitle));
 
         Material fillerMaterial = parseMaterial(cfg.getString(base + ".filler-item", "BLACK_STAINED_GLASS_PANE"), Material.BLACK_STAINED_GLASS_PANE);
-        ItemStack filler = new ItemStack(fillerMaterial);
-        ItemMeta fillerMeta = filler.getItemMeta();
-        if (fillerMeta != null) {
-            fillerMeta.displayName(mm.format(cfg.getString(base + ".filler-name", " "), null));
-            fillerMeta.addItemFlags(ItemFlag.values());
-            filler.setItemMeta(fillerMeta);
-        }
+        ItemStack filler = plainItem(fillerMaterial, cfg.getString(base + ".filler-name", " "), mm);
 
         return new Layout(size, fillEmptySlots, titleTemplate, filler, parseStatItems(cfg, mm, base + ".items", size));
     }
@@ -163,12 +199,15 @@ public class GuiManager {
                 continue;
             }
             Material material = parseMaterial(entry.getString("material", "STONE"), Material.STONE);
-            Line name = compileLine(mm, entry.getString("name", key));
+            String rawName = entry.getString("name", key);
+            List<String> rawLore = entry.getStringList("lore");
+            Line name = compileLine(mm, rawName);
             List<Line> lore = new ArrayList<>();
-            for (String line : entry.getStringList("lore")) {
+            for (String line : rawLore) {
                 lore.add(compileLine(mm, line));
             }
-            parsed.add(new CompiledStatItem(slot, material, name, lore, parseSkullOwner(entry)));
+            parsed.add(new CompiledStatItem(slot, material, name, lore, parseSkullOwner(entry),
+                    parseReveal(entry, rawName + "\n" + String.join("\n", rawLore))));
         }
         return parsed;
     }
@@ -177,6 +216,26 @@ public class GuiManager {
         String template = mm.precompile(raw);
         boolean dynamic = template.indexOf('{') >= 0 || template.indexOf('%') >= 0;
         return new Line(template, dynamic ? null : mm.renderPrecompiled(template, Map.of(), null));
+    }
+
+    /**
+     * reveal: instant / step / final, or derived from the item's text: lead
+     * counts are the result, so they come last; single verdicts are revealed
+     * one by one; everything else (heads, "VS") is there from the start.
+     */
+    private Reveal parseReveal(ConfigurationSection entry, String text) {
+        String explicit = entry.getString("reveal", "");
+        try {
+            if (!explicit.isEmpty()) {
+                return Reveal.valueOf(explicit.toUpperCase(Locale.ROOT));
+            }
+        } catch (IllegalArgumentException ex) {
+            plugin.getLogger().warning(entry.getCurrentPath() + ".reveal must be instant, step or final - ignoring '" + explicit + "'.");
+        }
+        if (text.contains("{compare_self_leads}") || text.contains("{compare_rival_leads}")) {
+            return Reveal.FINAL;
+        }
+        return text.contains("{compare_") ? Reveal.STEP : Reveal.INSTANT;
     }
 
     /** skull-owner: true / self -&gt; the GUI's main player, rival -&gt; the compared player. */
@@ -293,6 +352,7 @@ public class GuiManager {
         if (isOnCooldown(viewer)) {
             return false;
         }
+        cancelAnimation(viewer.getUniqueId());
 
         PlayerStats stats = plugin.getStatsManager().getView(target.getUniqueId());
         Map<String, String> placeholders = plugin.getPlaceholderManager().buildStatPlaceholders(target, stats);
@@ -320,9 +380,104 @@ public class GuiManager {
                 rival, statsManager.getView(rival.getUniqueId()),
                 compareFormats);
 
-        viewer.openInventory(render(rivalLayout, placeholders, viewer, rival));
+        Inventory inventory = render(rivalLayout, placeholders, viewer, rival);
+        cancelAnimation(viewer.getUniqueId());
+        if (!rivalAnimation.enabled()) {
+            viewer.openInventory(inventory);
+            playSound(viewer, "open");
+            return true;
+        }
+
+        // Keep the rendered items aside and show placeholders until their turn.
+        List<PendingItem> steps = new ArrayList<>();
+        List<PendingItem> finale = new ArrayList<>();
+        for (CompiledStatItem def : rivalLayout.items()) {
+            if (def.reveal() == Reveal.INSTANT) {
+                continue;
+            }
+            (def.reveal() == Reveal.STEP ? steps : finale).add(new PendingItem(def.slot(), inventory.getItem(def.slot())));
+            inventory.setItem(def.slot(), rivalAnimation.hidden());
+        }
+        steps.sort(java.util.Comparator.comparingInt(PendingItem::slot));
+
+        int selfLeads = parseCount(placeholders.get("compare_self_leads"));
+        int rivalLeads = parseCount(placeholders.get("compare_rival_leads"));
+        SkullOwner leader = selfLeads == rivalLeads ? SkullOwner.NONE
+                : selfLeads > rivalLeads ? SkullOwner.PRIMARY : SkullOwner.RIVAL;
+
+        viewer.openInventory(inventory);
         playSound(viewer, "open");
+        startReveal(viewer, inventory, steps, finale, leader, Integer.compare(selfLeads, rivalLeads));
         return true;
+    }
+
+    /**
+     * Reveals one stat per interval with a rising pitch, then the finale: the
+     * lead counts, a glint on the leader's head and a win/lose/tie sound.
+     * Stops as soon as the viewer closes the GUI or opens another one.
+     */
+    private void startReveal(Player viewer, Inventory inventory, List<PendingItem> steps, List<PendingItem> finale,
+                             SkullOwner leader, int outcome) {
+        Object holder = inventory.getHolder(false);
+        int[] next = {0};
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!viewer.isOnline() || viewer.getOpenInventory().getTopInventory() == null
+                    || viewer.getOpenInventory().getTopInventory().getHolder(false) != holder) {
+                cancelAnimation(viewer.getUniqueId());
+                return;
+            }
+            if (next[0] < steps.size()) {
+                PendingItem pending = steps.get(next[0]);
+                inventory.setItem(pending.slot(), pending.item());
+                playSound(viewer, rivalAnimation.revealSound(),
+                        rivalAnimation.revealSound().pitch() + rivalAnimation.pitchStep() * next[0]);
+                next[0]++;
+                return;
+            }
+            for (PendingItem pending : finale) {
+                inventory.setItem(pending.slot(), pending.item());
+            }
+            if (rivalAnimation.highlightLeader() && leader != SkullOwner.NONE) {
+                for (CompiledStatItem def : rivalLayout.items()) {
+                    ItemStack head = inventory.getItem(def.slot());
+                    if (def.skullOwner() == leader && head != null) {
+                        ItemStack glowing = head.clone();
+                        ItemMeta meta = glowing.getItemMeta();
+                        if (meta != null) {
+                            meta.setEnchantmentGlintOverride(true);
+                            glowing.setItemMeta(meta);
+                            inventory.setItem(def.slot(), glowing);
+                        }
+                    }
+                }
+            }
+            SoundSetting finish = outcome > 0 ? rivalAnimation.winSound()
+                    : outcome < 0 ? rivalAnimation.loseSound() : rivalAnimation.tieSound();
+            playSound(viewer, finish, finish.pitch());
+            cancelAnimation(viewer.getUniqueId());
+        }, rivalAnimation.intervalTicks(), rivalAnimation.intervalTicks());
+        animations.put(viewer.getUniqueId(), task);
+    }
+
+    private static int parseCount(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException | NullPointerException ex) {
+            return 0;
+        }
+    }
+
+    private void cancelAnimation(UUID viewer) {
+        BukkitTask running = animations.remove(viewer);
+        if (running != null) {
+            running.cancel();
+        }
+    }
+
+    private void playSound(Player player, SoundSetting setting, float pitch) {
+        if (setting.enabled() && setting.sound() != null) {
+            player.playSound(player.getLocation(), setting.sound(), setting.volume(), pitch);
+        }
     }
 
     private boolean isOnCooldown(Player viewer) {
@@ -429,7 +584,9 @@ public class GuiManager {
         return inventory != null && inventory.getHolder(false) instanceof StatsHolder;
     }
 
-    public void clearCooldown(UUID uuid) {
+    /** Drops per-player state (open cooldown, running reveal) when a player leaves. */
+    public void forget(UUID uuid) {
         lastOpenMillis.remove(uuid);
+        cancelAnimation(uuid);
     }
 }

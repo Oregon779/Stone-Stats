@@ -17,7 +17,7 @@ Bei jedem Build beide Stellen identisch halten:
 
 Nur beim Release zusätzlich: `WIKI.md` → Zeile `**Version:** …` auf die neue Hauptversion setzen.
 
-Aktuelle Hauptversion: `1.0.0`. Letzter Build: `1.0.0` (Release). Vor der nächsten Änderung nach der neuen Hauptversion fragen.
+Aktuelle Hauptversion: `1.1`. Letzter Build: `1.1` (Release). Vor der nächsten Änderung nach der neuen Hauptversion fragen.
 
 # REGELN FÜR NEUE CONFIG-OPTIONEN
 

@@ -2,7 +2,7 @@
 
 Stone Stats is a Paper plugin that shows every player's statistics in a fast, fully configurable inventory GUI: kills, deaths, K/D, mob kills, blocks broken and placed, playtime, first join, last login and XP level. Players can compare themselves with each other, and admins can view offline players and reset stats.
 
-**Version:** 1.0.0 · **Server:** Paper 26.2+ · **Java:** 25
+**Version:** 1.1 · **Server:** Paper 26.2+ · **Java:** 25
 
 ## Contents
 
@@ -50,7 +50,7 @@ Stone Stats is a Paper plugin that shows every player's statistics in a fast, fu
 
 **Install**
 
-1. Put `StoneStats-1.0.0.jar` into your server's `plugins/` folder.
+1. Put `StoneStats-1.1.jar` into your server's `plugins/` folder.
 2. (Optional) Install PlaceholderAPI.
 3. Start the server. Stone Stats creates its folder `plugins/StoneStats/`:
 
